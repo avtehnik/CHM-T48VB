@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CHM-T48VB Project Prep</title>
+<style>
+:root{
+  --bg:#f4f5f7; --panel:#fff; --text:#1c1f24; --muted:#697180; --border:#dce0e5; --input:#fff;
+  --accent:#2563eb; --accent-weak:#e7eefc; --ok:#15803d; --warn:#b45309; --err:#c62828; --err-weak:#fdecec;
+  --t8:#e3edff; --t12:#e1f5e6; --t16:#fff1d6; --t24:#f6e1f3; --tray:#ebebef; --hl:#fff7c2;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15171b; --panel:#1e2126; --text:#e6e8eb; --muted:#9aa1ad; --border:#343942; --input:#171a1e;
+    --accent:#6b9bff; --accent-weak:#23304a; --ok:#4ade80; --warn:#fbbf24; --err:#f87171; --err-weak:#3a2224;
+    --t8:#233250; --t12:#1f3a2a; --t16:#43381f; --t24:#40243d; --tray:#2b2e35; --hl:#3d3a1f;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15171b; --panel:#1e2126; --text:#e6e8eb; --muted:#9aa1ad; --border:#343942; --input:#171a1e;
+  --accent:#6b9bff; --accent-weak:#23304a; --ok:#4ade80; --warn:#fbbf24; --err:#f87171; --err-weak:#3a2224;
+  --t8:#233250; --t12:#1f3a2a; --t16:#43381f; --t24:#40243d; --tray:#2b2e35; --hl:#3d3a1f;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5}
+header h1{font-size:15px;margin:0 12px 0 0;white-space:nowrap}
+header .grow{flex:1}
+main{padding:12px 16px 40px;display:flex;flex-direction:column;gap:12px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;min-width:0}
+.card h2{font-size:13px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);display:flex;align-items:center;gap:8px}
+.card h2 .sp{flex:1}
+.top{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.mid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:12px}
+.machine{display:grid;grid-template-columns:minmax(0,1fr) 320px minmax(0,1fr);gap:12px;align-items:start}
+@media (max-width:1100px){.mid,.machine{grid-template-columns:minmax(0,1fr)}}
+button,.btn{font:inherit;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;white-space:nowrap}
+button:hover,.btn:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+button.primary:disabled{opacity:.5;cursor:not-allowed}
+button.icon{padding:2px 6px;line-height:1}
+input,select{font:inherit;color:var(--text);background:var(--input);border:1px solid var(--border);border-radius:4px;padding:3px 5px;min-width:0}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
+input[type=number]{width:70px}
+input[type=checkbox]{width:auto}
+.grid2{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center}
+.grid2 label{color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.drop{border:2px dashed var(--border);border-radius:8px;padding:14px;text-align:center;cursor:pointer;color:var(--muted)}
+.drop.over{border-color:var(--accent);background:var(--accent-weak)}
+.drop b{color:var(--text)}
+table{border-collapse:collapse;width:100%}
+th,td{padding:2px 3px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}
+th{font-size:11px;color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--panel);z-index:1}
+.scroll{overflow:auto;max-height:560px}
+.feeders input[data-f=value],.feeders input[data-f=footprint]{width:100%}
+.feeders input[type=number]{width:52px}
+.feeders select[data-f=type]{width:64px}
+.feeders td.sid{font-weight:700;width:30px;text-align:right;padding-right:6px}
+.feeders tr.empty input,.feeders tr.empty select{opacity:.55}
+.feeders tr.skipped td.sid{text-decoration:line-through;color:var(--muted)}
+.feeders tr.hl td{background:var(--hl)}
+.chip{border-radius:10px;padding:1px 4px;font-size:11px;border:1px solid var(--border)}
+.t8{background:var(--t8)}.t12{background:var(--t12)}.t16{background:var(--t16)}.t24{background:var(--t24)}.t0,.tray{background:var(--tray)}
+.badge{display:inline-block;min-width:20px;text-align:center;border-radius:9px;font-size:11px;font-weight:700;padding:0 4px;background:var(--accent-weak);color:var(--accent)}
+.badge:empty{display:none}
+.groups td{font-size:12px}
+.groups tr.miss td{background:var(--err-weak)}
+.groups tr.dnp td{color:var(--muted)}
+.groups select{max-width:220px}
+.groups select[data-ct]{width:68px}
+.groups input[data-cr]{width:62px}
+.groups select[data-cf]{max-width:200px}
+.groups .refs{max-width:160px}
+.groups input[data-cr].edited{border-color:var(--accent);color:var(--accent);font-weight:600}
+.refs{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.warn{color:var(--warn)} .err{color:var(--err)} .ok{color:var(--ok)}
+ul.msgs{margin:6px 0;padding-left:18px}
+pre.out{max-height:300px;overflow:auto;background:var(--input);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:11px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.stat{border:1px solid var(--border);border-radius:6px;padding:6px 8px}
+.stat b{display:block;font-size:18px}
+.tray-map{display:grid;grid-template-columns:repeat(7,1fr) 28px;gap:4px;margin-bottom:10px}
+.tray-map button{padding:6px 0;font-size:11px;font-weight:700;background:var(--tray)}
+.tray-map button.cfg{background:var(--accent-weak);color:var(--accent);border-color:var(--accent)}
+.tray-map .p84{grid-column:8;grid-row:1 / span 2}
+svg.preview{width:100%;height:320px;background:var(--input);border:1px solid var(--border);border-radius:6px}
+dialog{border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);padding:0;width:min(560px,calc(100vw - 32px))}
+dialog::backdrop{background:rgba(0,0,0,.4)}
+dialog form{padding:14px}
+dialog h3{margin:0 0 10px}
+dialog .grid2 input:not([type=checkbox]),dialog .grid2 select{width:100%}
+dialog .foot{display:flex;gap:8px;margin-top:12px}
+dialog .foot .sp{flex:1}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 14px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw}
+#toast.show{opacity:1}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>CHM-T48VB · підготовка проекту</h1>
+  <label class="muted">Проект</label><input id="pname" data-p="name" placeholder="ім'я файлу .dpv" style="width:200px">
+  <span class="grow"></span>
+  <button id="btnBackup" title="Зберегти налаштування фідерів у CSV">⬇ Бекап фідерів (CSV)</button>
+  <button id="btnRestore" title="Відновити налаштування фідерів з CSV">⬆ Відновити з CSV</button>
+  <button id="btnImportDpv" title="Взяти параметри станцій (DeltX/DeltY тощо) з існуючого .dpv">⬆ Станції з .dpv</button>
+  <button id="btnTheme" class="icon" title="Тема">◐</button>
+  <input type="file" id="fRestore" accept=".csv,text/csv" class="hidden">
+  <input type="file" id="fDpv" accept=".dpv,.txt" class="hidden">
+</header>
+
+<main>
+  <section class="top">
+    <div class="card">
+      <h2>Файл координат (CSV)</h2>
+      <div class="drop" id="drop"><b>Оберіть або перетягніть CSV</b><br><span class="small">KiCad .pos/.csv, Altium, EasyEDA — колонки визначаються автоматично</span></div>
+      <input type="file" id="fCsv" accept=".csv,.txt,.pos,text/csv" class="hidden">
+      <div id="csvInfo" class="small" style="margin-top:8px"></div>
+      <div class="grid2" style="margin-top:10px">
+        <label>Сторона</label>
+        <select data-p="side"><option value="top">Top</option><option value="bottom">Bottom</option><option value="all">Всі</option></select>
+        <label>Зсув X / Y, мм</label>
+        <div class="row"><input type="number" step="0.01" data-p="offX"><input type="number" step="0.01" data-p="offY"></div>
+        <label>Дзеркало X</label>
+        <div class="row"><label><input type="checkbox" data-p="mirrorX"> x = W − x</label> W <input type="number" step="0.01" data-p="boardW"></div>
+        <label>Інвертувати Y</label>
+        <label><input type="checkbox" data-p="invertY"> y = −y</label>
+        <label>Глоб. поворот, °</label>
+        <input type="number" step="90" data-p="rotOff">
+        <label>Не ставити (ref)</label>
+        <input data-p="exclude" placeholder="напр.: TP1, FID1, FID2">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Панель і калібрування</h2>
+      <div class="grid2">
+        <label>Плат X × Y</label>
+        <div class="row"><input type="number" min="1" step="1" data-p="nx"> × <input type="number" min="1" step="1" data-p="ny"></div>
+        <label>Крок X / Y, мм</label>
+        <div class="row"><input type="number" step="0.01" data-p="ix"><input type="number" step="0.01" data-p="iy"></div>
+        <label>Пропустити плати</label>
+        <input data-p="skipBoards" placeholder="номери 1…N через кому">
+        <label>Точки калібрування</label>
+        <select data-p="calib"><option value="auto">Авто: 3 компоненти (UL, LR, LL)</option><option value="none">Немає</option></select>
+        <label>Станції у файлі</label>
+        <select data-p="onlyUsed"><option value="1">Лише задіяні</option><option value="0">Всі налаштовані</option></select>
+      </div>
+      <div id="calibInfo" class="small muted" style="margin-top:8px"></div>
+      <p class="small muted" style="margin:8px 0 0">Плати нумеруються зліва направо, знизу вгору. Координати компонентів — для плати №1 (ліва нижня).</p>
+    </div>
+
+    <div class="card">
+      <h2>Експорт .dpv</h2>
+      <div class="stats" id="stats"></div>
+      <div id="msgs" class="small"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="primary" id="btnDownload">⬇ Завантажити .dpv</button>
+        <button id="btnPreview">Переглянути</button>
+      </div>
+      <pre class="out hidden" id="outPreview"></pre>
+    </div>
+  </section>
+
+  <section class="mid">
+    <div class="card">
+      <h2>Компоненти <span class="small muted" id="compCount" style="text-transform:none;letter-spacing:0"></span><span class="sp"></span><label class="small" style="text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="onlyMissing"> лише без фідера</label></h2>
+      <p class="small muted" style="margin:-4px 0 8px">Вибір вільного фідера заповнює його типом, номіналом і футпрінтом — решта таких самих компонентів підхопить його автоматично.</p>
+      <div class="scroll" style="max-height:520px"><table class="groups" id="groups"></table></div>
+    </div>
+    <div class="card">
+      <h2>Прев'ю розміщення</h2>
+      <svg class="preview" id="preview"></svg>
+      <div class="small muted" style="margin-top:6px">● призначені &nbsp; <span class="err">●</span> без фідера &nbsp; <span class="warn">◆</span> точки калібрування</div>
+    </div>
+  </section>
+
+  <section class="machine">
+    <div class="card">
+      <h2>Ліві фідери · 1–29</h2>
+      <div class="scroll"><table class="feeders" id="fLeft"></table></div>
+    </div>
+    <div class="card">
+      <h2>Передній лоток · 71–84</h2>
+      <div class="tray-map" id="trayMap"></div>
+      <div class="scroll" style="max-height:420px"><table class="feeders" id="fTray"></table></div>
+    </div>
+    <div class="card">
+      <h2>Праві фідери · 36–64</h2>
+      <div class="scroll"><table class="feeders" id="fRight"></table></div>
+    </div>
+  </section>
+</main>
+
+<dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
+<div id="toast"></div>
+
+<script>
+'use strict';
+const LS = { feeders:'chm48.feeders.v1', project:'chm48.project.v1', csv:'chm48.csv.v1', theme:'chm48.theme' };
+const range = (a,b) => Array.from({length:b-a+1}, (_,i)=>a+i);
+const LEFT = range(1,29), RIGHT = range(36,64), TRAY = range(71,84);
+const ALL_IDS = [...LEFT, ...RIGHT, ...TRAY];
+const TYPES = ['', 'R', 'C', 'L', 'D', 'LED', 'Q', 'IC', 'Crystal', 'Conn', 'Btn', 'Fuse', 'Other'];
+
+// Per HDS spec: each reel set = 22×8mm, 3×12mm, 3×16mm, 1×24mm (editable per feeder).
+function defaultTape(id){
+  if (id >= 71) return 0;
+  const i = id >= 36 ? id - 35 : id;
+  return i <= 22 ? 8 : i <= 25 ? 12 : i <= 28 ? 16 : 24;
+}
+function defFeeder(id){
+  const tray = id >= 71;
+  return { id, tape:defaultTape(id), type:'', value:'', footprint:'', note:'',
+    height:0.5, placeHeight:'', feedRate: tray ? 0 : 4, nozzle:1, rotOffset:0,
+    deltX:0, deltY:0, speed:0, skip:false, vacuum:false, vision:true, pauseEmpty:false,
+    delayTake:0, pullSpeed:0, threshold:0, visualRatio:0, pixX:0, pixY:0, heightTake:0, placeDelay:0 };
+}
+// key → kind, used for CSV backup/restore and dialog coercion
+const FIELDS = { id:'int', tape:'int', type:'str', value:'str', footprint:'str', note:'str',
+  height:'num', placeHeight:'optnum', feedRate:'num', nozzle:'int', rotOffset:'num',
+  deltX:'num', deltY:'num', speed:'int', skip:'bool', vacuum:'bool', vision:'bool', pauseEmpty:'bool',
+  delayTake:'int', pullSpeed:'int', threshold:'int', visualRatio:'int', pixX:'int', pixY:'int', heightTake:'num', placeDelay:'int' };
+const DEF_PROJECT = { name:'', side:'top', offX:0, offY:0, mirrorX:false, boardW:100, invertY:false, rotOff:0, exclude:'',
+  nx:1, ny:1, ix:0, iy:0, skipBoards:'', calib:'auto', onlyUsed:'1', cFeeder:{}, cType:{}, cRot:{}, onlyMissing:false };
+
+function coerce(kind, v){
+  if (kind === 'bool') return v === true || v === 1 || /^(1|true|yes|так|x)$/i.test(String(v).trim());
+  if (kind === 'str') return String(v ?? '');
+  if (kind === 'optnum') return String(v ?? '').trim() === '' ? '' : (num(v) || 0);
+  const n = num(v); if (!isFinite(n)) return 0;
+  return kind === 'int' ? Math.round(n) : n;
+}
+function num(s){
+  if (typeof s === 'number') return s;
+  const m = String(s ?? '').replace(',', '.').match(/[-+]?\d*\.?\d+(?:e[-+]?\d+)?/i);
+  return m ? parseFloat(m[0]) : NaN;
+}
+function load(key, def){ try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch(e){ return def; } }
+function store(key, val){ try { localStorage.setItem(key, JSON.stringify(val)); return true; } catch(e){ return false; } }
+
+// ---------- state ----------
+const state = { feeders:{}, project:{}, csv:null, parsed:null };
+(function init(){
+  const sf = load(LS.feeders, {}) || {};
+  for (const id of ALL_IDS) state.feeders[id] = Object.assign(defFeeder(id), sf[id] || {}, { id });
+  state.project = Object.assign({}, DEF_PROJECT, load(LS.project, {}) || {});
+  for (const k of ['cFeeder', 'cType', 'cRot']) state.project[k] = state.project[k] || {};
+  for (const k of ['overrides', 'typeOverrides', 'rotSet', 'rotOverrides']) delete state.project[k]; // old per-group settings
+  state.csv = load(LS.csv, null);
+})();
+function saveFeeders(){ if (!store(LS.feeders, state.feeders)) toast('Не вдалося зберегти у localStorage'); }
+function saveProject(){ store(LS.project, state.project); }
+
+const isCfg = f => !!(f && (f.value.trim() || f.footprint.trim() || f.note.trim()));
+const norm = s => String(s ?? '').trim().toLowerCase();
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clean = s => String(s ?? '').replace(/[,\r\n"]/g, ' ').replace(/[^\x20-\x7E]/g, '_').replace(/\s+/g, ' ').trim();
+const fmt = n => { const r = Math.round((+n || 0) * 100) / 100; return Object.is(r, -0) ? '0' : String(r); };
+const normAngle = a => { a = ((a % 360) + 360) % 360; if (a > 180) a -= 360; return Math.round(a * 100) / 100; };
+const statusOf = f => (f.skip?1:0) | (f.vacuum?2:0) | (f.vision?4:0) | (f.pauseEmpty?8:0);
+const noteOf = f => clean(f.note.trim() || [f.value, f.footprint].map(s => s.trim()).filter(Boolean).join(' '));
+
+// ---------- CSV parsing ----------
+function detectDelim(text){
+  const lines = text.split(/\r?\n/).filter(l => l.trim()).slice(0, 30);
+  let best = ',', bs = -1;
+  for (const d of [',', ';', '\t']) {
+    const s = lines.reduce((a, l) => a + l.split(d).length - 1, 0);
+    if (s > bs) { bs = s; best = d; }
+  }
+  return best;
+}
+function parseDelimited(text, d){
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i+1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === d) { row.push(f); f = ''; }
+    else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; }
+    else if (c !== '\r') f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+const nh = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+const ALIASES = {
+  ref:  ['ref','reference','designator','refdes','refdesignator','designators','component'],
+  val:  ['val','value','comment','partvalue','partnumber'],
+  pkg:  ['package','footprint','pattern','pkg','case','footprintname'],
+  x:    ['posx','x','midx','centerx','centerxmm','refx','locationx','xmm','posxmm','cx','xpos','xmil'],
+  y:    ['posy','y','midy','centery','centerymm','refy','locationy','ymm','posymm','cy','ypos','ymil'],
+  rot:  ['rot','rotation','angle','orientation','rotate'],
+  side: ['side','layer','tb','boardside','mountingside']
+};
+function parseCoords(text){
+  if (!text) return null;
+  const rows = parseDelimited(text, detectDelim(text));
+  let hdr = null;
+  for (let i = 0; i < Math.min(rows.length, 60) && !hdr; i++) {
+    const h = rows[i].map(nh), map = {};
+    for (const k in ALIASES) { const idx = h.findIndex(c => ALIASES[k].includes(c)); if (idx >= 0) map[k] = idx; }
+    if (map.ref != null && map.x != null && map.y != null) hdr = { row:i, map, names: rows[i] };
+  }
+  if (!hdr) return { error:'Не знайдено заголовок з колонками Ref / X / Y', comps:[] };
+  const m = hdr.map, comps = [], mil = nh(hdr.names[m.x]).endsWith('mil');
+  for (const r of rows.slice(hdr.row + 1)) {
+    if (!r.length || r.every(c => !c.trim())) continue;
+    const ref = (r[m.ref] || '').trim(); if (!ref) continue;
+    let x = num(r[m.x]), y = num(r[m.y]);
+    if (!isFinite(x) || !isFinite(y)) continue;
+    if (mil) { x *= 0.0254; y *= 0.0254; }
+    const sraw = m.side != null ? norm(r[m.side]) : '';
+    const side = /^(b|bot|bottom|back|b\.cu|bottomlayer)$/.test(sraw) ? 'bottom' : /^(t|top|front|f\.cu|toplayer)$/.test(sraw) ? 'top' : '';
+    comps.push({ ref, val:(m.val!=null ? r[m.val] : '').trim(), pkg:(m.pkg!=null ? r[m.pkg] : '').trim(),
+      x, y, rot: m.rot != null ? (num(r[m.rot]) || 0) : 0, side });
+  }
+  const cols = Object.entries(m).map(([k,i]) => `${k}=${hdr.names[i]}`).join(', ');
+  return { comps, cols };
+}
+
+// ---------- matching & computation ----------
+// Footprint: drop KiCad library prefix ("Resistor_SMD:") and punctuation.
+const normFp = s => norm(s).replace(/^[^:]*:/, '').replace(/[^a-z0-9]/g, '');
+// Value: SI-aware canonical form, so 10k = 10K = 10kΩ, 4k7 = 4.7k, 100nF = 0.1uF, 1R = 1 Ω.
+const SI = { p:1e-12, n:1e-9, u:1e-6, 'µ':1e-6, m:1e-3, r:1, k:1e3, meg:1e6, g:1e9 };
+function normVal(s){
+  const t = norm(s).replace(/\s+/g, '').replace(/ω|ohms?/g, '').replace(',', '.');
+  const m = t.match(/^(\d*\.?\d+)(meg|[pnuµmrkg])?(\d*)(f|h|v|a|w)?$/) || t.match(/^(\d*\.?\d+)(M)?(\d*)(f|h|v|a|w)?$/i);
+  if (!m) return t.replace(/[^a-z0-9.]/g, '');
+  let k = m[2] || '';
+  if (k === 'm' && /M/.test(String(s)) && !m[4]) k = 'meg'; // "1M" resistor = 1 MΩ, "1mF" stays milli
+  const n = parseFloat(m[3] ? m[1] + '.' + m[3] : m[1]) * (SI[k] ?? 1);
+  return +n.toPrecision(6) + (m[4] || '');
+}
+const fpTokens = s => norm(s).replace(/^[^:]*:/, '').split(/[^a-z0-9]+/).filter(Boolean);
+// 3 = same footprint; 2 = one is a contiguous token run of the other ("R_0402" ⊂ "R_0402_1005Metric"),
+// unless the extra tokens are bare numbers — those are usually pin counts ("SOT-23" vs "SOT-23-5").
+function fpScore(ffp, pkg){
+  const a = normFp(ffp), b = normFp(pkg);
+  if (!a || !b) return 0;
+  if (a === b) return 3;
+  let s = fpTokens(ffp), l = fpTokens(pkg);
+  if (s.length > l.length) [s, l] = [l, s];
+  if (!s.length || s.join('').length < 3) return 0;
+  for (let i = 0; i + s.length <= l.length; i++) {
+    if (s.every((t, j) => t === l[i + j])) {
+      const extra = [...l.slice(0, i), ...l.slice(i + s.length)];
+      return extra.some(t => /^\d+$/.test(t)) ? 0 : 2;
+    }
+  }
+  return 0;
+}
+function valScore(fval, val){
+  if (!norm(fval)) return norm(val) ? -1 : 2;  // empty matches only empty
+  const a = normVal(fval), b = normVal(val);
+  if (a === b) return 2;
+  const u = s => String(s).replace(/[fhvaw]$/, '');
+  return u(a) === u(b) ? 1.5 : -1;             // "100n" vs "100nF"
+}
+// Feeder type "Other" covers components whose ref prefix is unknown (TP, BT, …).
+const typeOk = (ft, ct) => !!ft && (ft === ct || (ft === 'Other' && !ct));
+const feederFp = f => f.footprint.trim() || (!f.value.trim() ? f.note.trim() : '');
+// Auto-assign only when type, value and footprint all agree. Best score wins, ties → lower station ID.
+// Returns { id } or { id:null, why } explaining the nearest miss.
+function autoMatch(type, val, pkg){
+  let best = null, bs = 0, near = null, nearFp = 0;
+  for (const id of ALL_IDS) {
+    const f = state.feeders[id]; if (!isCfg(f)) continue;
+    const fs = fpScore(feederFp(f), pkg); if (!fs) continue;
+    const vs = valScore(f.value, val), tk = typeOk(f.type, type);
+    if (vs >= 0 && tk) { const sc = fs * 10 + vs; if (sc > bs) { bs = sc; best = id; } }
+    else if (fs > nearFp || (fs === nearFp && !near)) { nearFp = fs; near = { f, vs, tk }; }
+  }
+  if (best) return { id:best };
+  if (!near) return { id:null, why:'немає фідера з таким футпрінтом' };
+  const f = near.f;
+  if (!near.tk) return { id:null, why:`#${f.id}: тип ${f.type || '—'} ≠ ${type || 'Other'}` };
+  return { id:null, why:`#${f.id}: номінал ${f.value || '—'} ≠ ${val || '—'}` };
+}
+function boardList(P){
+  const nx = Math.max(1, P.nx|0), ny = Math.max(1, P.ny|0);
+  const skip = new Set(String(P.skipBoards).split(/[\s,;]+/).map(Number).filter(n => n >= 1));
+  const out = [];
+  for (let b = 0; b < nx*ny; b++) if (!skip.has(b+1)) out.push({ b, dx:(b % nx) * P.ix, dy:Math.floor(b / nx) * P.iy });
+  return { nx, ny, skip:[...skip].filter(n => n <= nx*ny).sort((a,b) => a-b), boards: out };
+}
+function compute(){
+  const P = state.project, parsed = state.parsed;
+  const res = { rows:[], placed:[], unplaced:[], stations:[], usedCount:{}, warnings:[], errors:[], calib:[], excluded:0 };
+  if (!parsed || !parsed.comps.length) return res;
+  const excl = new Set(String(P.exclude).split(/[\s,;]+/).filter(Boolean).map(s => s.toUpperCase()));
+  const comps = parsed.comps.filter(c => P.side === 'all' || !c.side || c.side === P.side);
+  const cache = new Map(); // autoMatch per type|value|footprint
+  for (const c of comps) {
+    const typeGuess = guessType(c.ref), type = P.cType[c.ref] ?? typeGuess;
+    const mk = type + '|' + norm(c.val) + '|' + norm(c.pkg);
+    if (!cache.has(mk)) cache.set(mk, autoMatch(type, c.val, c.pkg));
+    const am = cache.get(mk), ov = P.cFeeder[c.ref];
+    let x = c.x, y = c.y;
+    if (P.mirrorX) x = P.boardW - x;
+    if (P.invertY) y = -y;
+    x += +P.offX || 0; y += +P.offY || 0;
+    const r = { c, ref:c.ref, type, typeGuess, val:c.val, pkg:c.pkg, x, y, rotSet:P.cRot[c.ref],
+      auto:am.id, why:am.why, manual: ov !== undefined, station: ov !== undefined ? ov : am.id };
+    if (r.station && !isCfg(state.feeders[r.station])) r.station = null;
+    r.f = r.station ? state.feeders[r.station] : null;
+    r.excluded = excl.has(c.ref.toUpperCase()) || r.station === 0;
+    res.rows.push(r);
+    if (r.excluded) { res.excluded++; continue; }
+    if (!r.f) { res.unplaced.push(r); continue; }
+    r.angle = angleOf(r);
+    res.placed.push(r);
+    res.usedCount[r.f.id] = (res.usedCount[r.f.id] || 0) + 1;
+  }
+  res.rows.sort((a,b) => a.ref.localeCompare(b.ref, undefined, {numeric:true}));
+  res.placed.sort((a,b) => a.f.id - b.f.id || a.ref.localeCompare(b.ref, undefined, {numeric:true}));
+
+  const ids = P.onlyUsed === '0' ? ALL_IDS.filter(id => isCfg(state.feeders[id])) : Object.keys(res.usedCount).map(Number);
+  res.stations = ids.sort((a,b) => a-b).map(id => state.feeders[id]);
+
+  // calibration points: UL, LR, LL over all panel boards (matches CHMT's own "P<board>-<ref>" choice)
+  res.panel = boardList(P);
+  if (P.calib === 'auto' && res.placed.length) {
+    let ul, lr, ll;
+    for (const bd of res.panel.boards) for (const p of res.placed) {
+      const x = p.x + bd.dx, y = p.y + bd.dy, pt = { x, y, note:`P${bd.b}-${p.ref}` };
+      if (!ul || x - y < ul.x - ul.y) ul = pt;
+      if (!lr || x - y > lr.x - lr.y) lr = pt;
+      if (!ll || x + y < ll.x + ll.y) ll = pt;
+    }
+    res.calib = [ul, lr, ll];
+  }
+
+  // diagnostics
+  if (res.unplaced.length) res.errors.push(`Без фідера: ${res.unplaced.length} шт. (${res.unplaced.slice(0,8).map(r=>r.ref).join(', ')}${res.unplaced.length>8?'…':''}) — не потраплять у файл`);
+  if (res.placed.length === 1) res.warnings.push('Лише 1 компонент — CHMT потребує ≥2 для калібрування LR');
+  const neg = res.placed.filter(p => p.x < 0 || p.y < 0);
+  if (neg.length) res.warnings.push(`Від'ємні координати: ${neg.slice(0,6).map(p=>p.ref).join(', ')}${neg.length>6?'…':''} — задайте зсув або перевірте початок координат`);
+  const hi = res.stations.filter(f => f.height > 5);
+  if (hi.length) res.warnings.push(`Висота > 5 мм на станціях ${hi.map(f=>f.id).join(', ')}`);
+  const tapeBad = res.stations.filter(f => f.id < 71 && !f.feedRate);
+  if (tapeBad.length) res.warnings.push(`FeedRates = 0 на стрічкових станціях ${tapeBad.map(f=>f.id).join(', ')}`);
+  const na = res.stations.filter(f => /[^\x20-\x7E]/.test(f.note + f.value + f.footprint));
+  if (na.length) res.warnings.push(`Не-ASCII символи в Note (станції ${na.map(f=>f.id).join(', ')}) буде замінено на "_"`);
+  const off = res.placed.filter(p => p.f.skip);
+  if (off.length) res.warnings.push(`${off.length} компонент(и) на станціях з прапорцем Skip — машина їх пропустить`);
+  return res;
+}
+
+// ---------- DPV output ----------
+function fileBase(){
+  const n = state.project.name.trim() || (state.csv ? state.csv.name.replace(/\.[^.]+$/, '') : 'project');
+  return clean(n).replace(/[\\/:*?<>|]/g, '_') || 'project';
+}
+function buildDpv(res){
+  const P = state.project, L = [], now = new Date(), p2 = n => String(n).padStart(2, '0'), base = fileBase();
+  L.push('separated', `FILE,${base}.dpv`, `PCBFILE,${state.csv ? clean(state.csv.name) : base + '.dpv'}`,
+    `DATE,${now.getFullYear()}/${p2(now.getMonth()+1)}/${p2(now.getDate())}`,
+    `TIME,${p2(now.getHours())}:${p2(now.getMinutes())}:${p2(now.getSeconds())}`, 'PANELYPE,1', '');
+  L.push('Table,No.,ID,DeltX,DeltY,FeedRates,Note,Height,Speed,Status,nPixSizeX,nPixSizeY,HeightTake,DelayTake,nPullStripSpeed,nThreshold,nVisualRadio', '');
+  res.stations.forEach((f, i) => L.push(
+    `Station,${i},${f.id},${fmt(f.deltX)},${fmt(f.deltY)},${fmt(f.feedRate)},${noteOf(f)},${fmt(f.height)},${f.speed|0},${statusOf(f)},${f.pixX|0},${f.pixY|0},${fmt(f.heightTake)},${f.delayTake|0},${f.pullSpeed|0},${f.threshold|0},${f.visualRatio|0}`, ''));
+  L.push('', '', 'Table,No.,ID,IntervalX,IntervalY,NumX,NumY', '');
+  L.push(`Panel_Array,0,1,${fmt(P.ix)},${fmt(P.iy)},${res.panel.nx},${res.panel.ny}`);
+  res.panel.skip.forEach((b, i) => L.push(`Panel_Array,${i+1},${b},0,0,0,0`));
+  L.push('', '', '', 'Table,No.,ID,PHead,STNo.,DeltX,DeltY,Angle,Height,Skip,Speed,Explain,Note,Delay', '');
+  res.placed.forEach((p, i) => {
+    const f = p.f, ph = f.placeHeight === '' ? f.height : f.placeHeight;
+    L.push(`EComponent,${i},${i+1},${f.nozzle === 2 ? 2 : 1},${f.id},${fmt(p.x)},${fmt(p.y)},${fmt(p.angle)},${fmt(ph)},${statusOf(f)},${f.speed|0},${clean(p.ref)},${noteOf(f)},${f.placeDelay|0}`, '');
+  });
+  L.push('', '', 'Table,No.,ID,CenterX,CenterY,IntervalX,IntervalY,NumX,NumY,Start', '', '', '');
+  L.push('Table,No.,nType,nAlg,nFinished', '', 'PcbCalib,0,0,0,0', '');
+  L.push('Table,No.,ID,offsetX,offsetY,Note,Model,Type,DevX,DevY', '');
+  res.calib.forEach((c, i) => L.push(`CalibPoint,${i},0,${fmt(c.x)},${fmt(c.y)},${clean(c.note)},0,0,0,0`));
+  L.push('', 'Table,No.,PCBX1,PCBY1,PCBX2,PCBY2,PCBX3,PCBY3,SMTX1,SMTY1,SMTX2,SMTY2,SMTX3,SMTY3,DeltaAngle', '');
+  L.push('CalibFator,0,0,0,0,0,0,0,0,0,0,0,0,0,0', '', '');
+  return L.join('\r\n');
+}
+function download(name, text){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type:'text/plain' }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ---------- rendering ----------
+const $ = s => document.querySelector(s);
+function feederRow(f){
+  const tray = f.id >= 71, cls = (isCfg(f) ? '' : 'empty') + (f.skip ? ' skipped' : '');
+  const opt = (v, cur, label=v) => `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(label)}</option>`;
+  return `<tr data-id="${f.id}" class="${cls}">
+    <td class="sid">${f.id}</td>
+    ${tray ? '' : `<td><select data-f="tape" class="chip t${f.tape}" title="Ширина стрічки, мм">${[8,12,16,24].map(t => opt(t, f.tape)).join('')}</select></td>`}
+    <td><select data-f="type">${TYPES.map(t => opt(t, f.type, t || '—')).join('')}</select></td>
+    <td><input data-f="value" value="${esc(f.value)}" placeholder="номінал"></td>
+    <td><input data-f="footprint" value="${esc(f.footprint)}" placeholder="футпрінт"></td>
+    <td><input data-f="height" type="number" step="0.1" min="0" value="${f.height}" title="Висота, мм"></td>
+    ${tray ? '' : `<td><input data-f="feedRate" type="number" step="2" min="0" value="${f.feedRate}" title="Крок подачі (FeedRates), мм"></td>`}
+    <td><select data-f="nozzle" title="Сопло">${opt(1, f.nozzle)}${opt(2, f.nozzle)}</select></td>
+    <td><span class="badge" data-badge="${f.id}" title="Кількість компонентів"></span></td>
+    <td><button type="button" class="icon" data-edit="${f.id}" title="Усі параметри">⚙</button></td>
+  </tr>`;
+}
+const FEEDER_HEAD = '<thead><tr><th>ID</th><th>мм</th><th>Тип</th><th>Номінал</th><th>Футпрінт</th><th>H</th><th>Крок</th><th>Сопло</th><th>#</th><th></th></tr></thead>';
+const TRAY_HEAD = '<thead><tr><th>ID</th><th>Тип</th><th>Номінал</th><th>Футпрінт</th><th>H</th><th>Сопло</th><th>#</th><th></th></tr></thead>';
+function renderFeeders(){
+  $('#fLeft').innerHTML = FEEDER_HEAD + '<tbody>' + LEFT.map(id => feederRow(state.feeders[id])).join('') + '</tbody>';
+  $('#fRight').innerHTML = FEEDER_HEAD + '<tbody>' + RIGHT.map(id => feederRow(state.feeders[id])).join('') + '</tbody>';
+  $('#fTray').innerHTML = TRAY_HEAD + '<tbody>' + TRAY.map(id => feederRow(state.feeders[id])).join('') + '</tbody>';
+  renderTrayMap();
+}
+function refreshRow(id){
+  const tr = document.querySelector(`tr[data-id="${id}"]`);
+  if (tr) tr.outerHTML = feederRow(state.feeders[id]);
+  renderTrayMap();
+}
+function renderTrayMap(){
+  const b = id => `<button type="button" class="${isCfg(state.feeders[id]) ? 'cfg' : ''}${id===84?' p84':''}" data-edit="${id}" title="${esc(noteOf(state.feeders[id]) || 'порожньо')}">${id}</button>`;
+  $('#trayMap').innerHTML = range(71,77).map(b).join('') + b(84) + range(78,83).map(b).join('');
+}
+// Shared option list (configured + free feeders), built once per refresh.
+function feederOptionsHtml(){
+  const o = [];
+  const cfg = ALL_IDS.filter(id => isCfg(state.feeders[id]));
+  o.push('<optgroup label="Налаштовані">' + cfg.map(id => `<option value="${id}">#${id} ${esc(noteOf(state.feeders[id]))}</option>`).join('') + '</optgroup>');
+  for (const [lbl, ids] of [['Вільні — ліві', LEFT], ['Вільні — праві', RIGHT], ['Вільні — лоток', TRAY]]) {
+    const free = ids.filter(id => !isCfg(state.feeders[id]));
+    if (free.length) o.push(`<optgroup label="${lbl}">` + free.map(id => `<option value="${id}">#${id}${id<71 ? ' ('+state.feeders[id].tape+'мм)' : ''}</option>`).join('') + '</optgroup>');
+  }
+  return o.join('');
+}
+function stationSelect(r, common){
+  const autoLbl = r.auto ? `авто → #${r.auto} ${noteOf(state.feeders[r.auto])}` : `авто: не знайдено (${r.why})`;
+  let opts = `<option value=""${!r.manual ? ' selected' : ''}>${esc(autoLbl)}</option><option value="0"${r.manual && r.station === 0 ? ' selected' : ''}>✕ не ставити</option>` + common;
+  if (r.manual && r.station) opts = opts.replace(`<option value="${r.station}">`, `<option value="${r.station}" selected>`);
+  return `<select data-cf="${esc(r.ref)}" title="${esc(r.station ? '' : r.why || '')}">${opts}</select>`;
+}
+// Component Rotation: edited value replaces the CSV one (undefined = keep CSV).
+const angleOf = r => normAngle((r.rotSet ?? r.c.rot) + (+state.project.rotOff || 0) + (+r.f.rotOffset || 0));
+function rotTitle(r){
+  const P = state.project, f = r.f;
+  const rot = r.rotSet !== undefined ? `Rotation ${fmt(r.rotSet)} (у CSV ${fmt(r.c.rot)})` : `Rotation ${fmt(r.c.rot)}`;
+  return 'Кут: ' + [rot, `глоб. ${fmt(+P.rotOff || 0)}`, f ? `фідер #${f.id} ${fmt(+f.rotOffset || 0)}` : 'фідер —'].join(' + ') + (f ? ` = ${fmt(angleOf(r))}°` : '');
+}
+let lastRes = null;
+function refresh(){
+  const res = lastRes = compute();
+  // components table
+  if (!state.parsed || !state.parsed.comps.length) {
+    $('#groups').innerHTML = '<tr><td class="muted">Завантажте CSV з координатами компонентів</td></tr>';
+  } else {
+    const common = feederOptionsHtml();
+    const rows = state.project.onlyMissing ? res.rows.filter(r => !r.f && !r.excluded) : res.rows;
+    const typeSel = r => `<select data-ct="${esc(r.ref)}" title="Тип визначено за позначенням: ${esc(r.typeGuess || '?')}">${TYPES.map(t => `<option value="${t}"${t === r.type ? ' selected' : ''}>${t || '—'}</option>`).join('')}</select>`;
+    const rotIn = r => { const set = r.rotSet !== undefined;
+      return `<input type="number" step="90" data-cr="${esc(r.ref)}" value="${fmt(set ? r.rotSet : r.c.rot)}" class="${set ? 'edited' : ''}" title="${esc(set ? `Змінено; у CSV ${fmt(r.c.rot)}. Очистіть поле, щоб повернути` : 'З CSV')}">`; };
+    $('#groups').innerHTML = '<thead><tr><th>Позн.</th><th>Тип</th><th>Номінал</th><th>Футпрінт</th><th>X</th><th>Y</th><th title="Rotation з CSV; можна змінити, порожньо = як у CSV">Rotation</th><th title="Підсумковий кут у .dpv: Rotation + глоб. поворот + корекція фідера">Кут</th><th>Фідер</th></tr></thead><tbody>' +
+      rows.map(r => `<tr class="${r.excluded ? 'dnp' : r.f ? '' : 'miss'}" data-hl="${r.f ? r.f.id : ''}">
+        <td><b>${esc(r.ref)}</b></td><td>${typeSel(r)}</td>
+        <td class="refs" title="${esc(r.val)}">${esc(r.val)}</td><td class="refs" title="${esc(r.pkg)}">${esc(r.pkg)}</td>
+        <td>${fmt(r.x)}</td><td>${fmt(r.y)}</td>
+        <td>${rotIn(r)}</td>
+        <td title="${esc(rotTitle(r))}"><b>${r.f && !r.excluded ? fmt(angleOf(r)) : '—'}</b></td>
+        <td>${stationSelect(r, common)}</td></tr>`).join('') + '</tbody>';
+  }
+  $('#compCount').textContent = res.rows.length ? `${res.rows.length} шт.` : '';
+  // badges
+  document.querySelectorAll('[data-badge]').forEach(el => { el.textContent = res.usedCount[el.dataset.badge] || ''; });
+  // stats & messages
+  $('#stats').innerHTML = `<div class="stat"><span class="muted small">Компонентів</span><b>${res.placed.length}</b></div>
+    <div class="stat"><span class="muted small">Станцій</span><b>${res.stations.length}</b></div>
+    <div class="stat"><span class="muted small">Без фідера</span><b class="${res.unplaced.length ? 'err' : ''}">${res.unplaced.length}</b></div>`;
+  const m = [...res.errors.map(t => `<li class="err">${esc(t)}</li>`), ...res.warnings.map(t => `<li class="warn">${esc(t)}</li>`)];
+  if (res.excluded) m.push(`<li class="muted">Виключено вручну: ${res.excluded}</li>`);
+  $('#msgs').innerHTML = m.length ? `<ul class="msgs">${m.join('')}</ul>` : (res.placed.length ? '<span class="ok">Все готово до експорту</span>' : '');
+  $('#btnDownload').disabled = !res.placed.length;
+  $('#calibInfo').innerHTML = res.calib.length ? res.calib.map((c,i) => `${['UL','LR','LL'][i]}: ${esc(c.note)} (${fmt(c.x)}, ${fmt(c.y)})`).join('<br>') : '';
+  if (!$('#outPreview').classList.contains('hidden')) $('#outPreview').textContent = res.placed.length ? buildDpv(res) : '';
+  renderPreview(res);
+}
+function renderCsvInfo(){
+  const p = state.parsed, el = $('#csvInfo');
+  if (!state.csv) { el.innerHTML = ''; return; }
+  if (p.error) { el.innerHTML = `<b>${esc(state.csv.name)}</b> — <span class="err">${esc(p.error)}</span>`; return; }
+  const sides = p.comps.reduce((a,c) => (a[c.side||'?'] = (a[c.side||'?']||0) + 1, a), {});
+  el.innerHTML = `<b>${esc(state.csv.name)}</b> — ${p.comps.length} компонентів (${Object.entries(sides).map(([k,v]) => `${k}: ${v}`).join(', ')}) <button type="button" class="icon" id="btnClearCsv" title="Прибрати">✕</button><br><span class="muted">Колонки: ${esc(p.cols)}</span>`;
+}
+function renderPreview(res){
+  const svg = $('#preview');
+  const pts = [];
+  for (const bd of (res.panel ? res.panel.boards : [])) {
+    for (const p of res.placed) pts.push({ x:p.x + bd.dx, y:p.y + bd.dy, ok:true, ref:p.ref, b:bd.b });
+    for (const p of res.unplaced) pts.push({ x:p.x + bd.dx, y:p.y + bd.dy, ok:false, ref:p.ref, b:bd.b });
+  }
+  if (!pts.length) { svg.innerHTML = ''; svg.removeAttribute('viewBox'); return; }
+  let x0 = Math.min(0, ...pts.map(p=>p.x)), x1 = Math.max(...pts.map(p=>p.x)), y0 = Math.min(0, ...pts.map(p=>p.y)), y1 = Math.max(...pts.map(p=>p.y));
+  const pad = Math.max(x1 - x0, y1 - y0, 10) * 0.06; x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+  const W = x1 - x0, H = y1 - y0, r = Math.max(W, H) / 150;
+  const Y = y => (y1 - y + y0); // flip: machine Y grows toward the back (up on screen)
+  let s = `<line x1="${x0}" y1="${Y(0)}" x2="${x1}" y2="${Y(0)}" stroke="var(--border)" stroke-width="${r/3}"/><line x1="0" y1="${y0}" x2="0" y2="${y1}" stroke="var(--border)" stroke-width="${r/3}"/>`;
+  for (const p of pts) s += `<circle cx="${p.x}" cy="${Y(p.y)}" r="${r}" fill="${p.ok ? 'var(--accent)' : 'var(--err)'}" opacity="${p.b ? .45 : .9}"><title>${esc(p.ref)} · плата ${p.b+1} · (${fmt(p.x)}, ${fmt(p.y)})</title></circle>`;
+  res.calib.forEach((c, i) => { s += `<rect x="${c.x - r*2}" y="${Y(c.y) - r*2}" width="${r*4}" height="${r*4}" transform="rotate(45 ${c.x} ${Y(c.y)})" fill="none" stroke="var(--warn)" stroke-width="${r/2}"><title>${['UL','LR','LL'][i]} ${esc(c.note)}</title></rect>`; });
+  svg.setAttribute('viewBox', `${x0} ${y0} ${W} ${H}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  svg.innerHTML = s;
+}
+function renderProject(){
+  document.querySelectorAll('[data-p]').forEach(el => {
+    const v = state.project[el.dataset.p];
+    if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? '';
+  });
+}
+
+// ---------- events ----------
+// Live re-match while typing in a feeder's text fields (the change event still fires on blur).
+let liveT;
+document.addEventListener('input', e => {
+  const t = e.target, k = t.dataset.f;
+  if (!k || FIELDS[k] !== 'str' || t.tagName !== 'INPUT') return;
+  const tr = t.closest('tr'), f = state.feeders[+tr.dataset.id];
+  f[k] = t.value;
+  tr.className = (isCfg(f) ? '' : 'empty') + (f.skip ? ' skipped' : '');
+  clearTimeout(liveT);
+  liveT = setTimeout(() => { saveFeeders(); renderTrayMap(); refresh(); }, 250);
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.f) {
+    const id = +t.closest('tr').dataset.id, f = state.feeders[id], k = t.dataset.f;
+    f[k] = coerce(FIELDS[k], t.value);
+    if (k === 'tape') { t.className = `chip t${f.tape}`; const fr = {8:4,12:8,16:12,24:16}[f.tape]; if (fr && f.feedRate < fr) { f.feedRate = fr; refreshRow(id); } }
+    t.closest('tr').className = (isCfg(f) ? '' : 'empty') + (f.skip ? ' skipped' : '');
+    saveFeeders(); renderTrayMap(); refresh();
+  } else if (t.dataset.p) {
+    const k = t.dataset.p, d = DEF_PROJECT[k];
+    state.project[k] = t.type === 'checkbox' ? t.checked : typeof d === 'number' ? (num(t.value) || 0) : t.value;
+    saveProject(); refresh();
+  } else if (t.dataset.cr !== undefined) {
+    const ref = t.dataset.cr, r = lastRes.rows.find(r => r.ref === ref);
+    const v = t.value.trim() === '' ? null : normAngle(num(t.value) || 0);
+    if (v === null || fmt(v) === fmt(r.c.rot)) delete state.project.cRot[ref]; else state.project.cRot[ref] = v;
+    saveProject(); refresh();
+  } else if (t.dataset.ct !== undefined) {
+    const r = lastRes.rows.find(r => r.ref === t.dataset.ct);
+    if (t.value === r.typeGuess) delete state.project.cType[r.ref]; else state.project.cType[r.ref] = t.value;
+    saveProject(); refresh();
+  } else if (t.dataset.cf !== undefined) {
+    const ref = t.dataset.cf, v = t.value;
+    if (v === '') delete state.project.cFeeder[ref];
+    else {
+      const id = +v, f = state.feeders[id];
+      if (id && !isCfg(f)) {
+        // Filling a free feeder: every component with the same type/value/footprint then matches it automatically.
+        const r = lastRes.rows.find(r => r.ref === ref);
+        f.value = r.val; f.footprint = r.pkg; f.type = r.type || 'Other';
+        saveFeeders(); refreshRow(id); toast(`Фідер #${id}: ${noteOf(f)}`);
+        delete state.project.cFeeder[ref];
+        if (autoMatch(r.type, r.val, r.pkg).id !== id) state.project.cFeeder[ref] = id;
+      } else state.project.cFeeder[ref] = id;
+    }
+    saveProject(); refresh();
+  } else if (t.id === 'onlyMissing') {
+    state.project.onlyMissing = t.checked; saveProject(); refresh();
+  }
+});
+document.addEventListener('click', e => {
+  const ed = e.target.closest('[data-edit]');
+  if (ed) openDialog(+ed.dataset.edit);
+  if (e.target.id === 'btnClearCsv') { state.csv = null; state.parsed = null; try { localStorage.removeItem(LS.csv); } catch(_){} renderCsvInfo(); refresh(); }
+});
+document.addEventListener('mouseover', e => {
+  const tr = e.target.closest('#groups tr[data-hl]');
+  document.querySelectorAll('.feeders tr.hl').forEach(r => r.classList.remove('hl'));
+  if (tr && tr.dataset.hl) { const r = document.querySelector(`.feeders tr[data-id="${tr.dataset.hl}"]`); if (r) r.classList.add('hl'); }
+});
+function guessType(ref){
+  const p = ref.toUpperCase().replace(/[^A-Z].*$/, '');
+  return ({R:'R',RN:'R',C:'C',L:'L',FB:'L',D:'D',LED:'LED',Q:'Q',U:'IC',IC:'IC',Y:'Crystal',X:'Crystal',J:'Conn',P:'Conn',CN:'Conn',SW:'Btn',S:'Btn',F:'Fuse'})[p] || '';
+}
+
+// CSV coords
+function loadCsvFile(file){
+  const rd = new FileReader();
+  rd.onload = () => {
+    state.csv = { name:file.name, text:String(rd.result) };
+    state.parsed = parseCoords(state.csv.text);
+    if (!store(LS.csv, state.csv)) toast('CSV завеликий для localStorage — після перезавантаження виберіть його знову');
+    if (!state.project.name.trim()) { state.project.name = file.name.replace(/\.[^.]+$/, ''); saveProject(); renderProject(); }
+    renderCsvInfo(); refresh();
+  };
+  rd.readAsText(file);
+}
+const drop = $('#drop');
+drop.onclick = () => $('#fCsv').click();
+$('#fCsv').onchange = e => { if (e.target.files[0]) loadCsvFile(e.target.files[0]); e.target.value = ''; };
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) loadCsvFile(e.dataTransfer.files[0]); };
+
+// Backup / restore feeders
+const csvCell = v => { const s = typeof v === 'boolean' ? (v ? '1' : '0') : String(v ?? ''); return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+$('#btnBackup').onclick = () => {
+  const keys = Object.keys(FIELDS);
+  const lines = [keys.join(','), ...ALL_IDS.map(id => keys.map(k => csvCell(state.feeders[id][k])).join(','))];
+  const d = new Date(), p2 = n => String(n).padStart(2,'0');
+  download(`chmt48vb-feeders-${d.getFullYear()}${p2(d.getMonth()+1)}${p2(d.getDate())}.csv`, '﻿' + lines.join('\r\n'));
+};
+$('#btnRestore').onclick = () => $('#fRestore').click();
+$('#fRestore').onchange = e => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const text = String(rd.result).replace(/^﻿/, '');
+    const rows = parseDelimited(text, detectDelim(text)).filter(r => r.some(c => c.trim()));
+    const head = (rows.shift() || []).map(s => s.trim());
+    const iId = head.indexOf('id');
+    if (iId < 0) { toast('У файлі немає колонки id'); return; }
+    const data = rows.filter(r => ALL_IDS.includes(+r[iId]));
+    if (!data.length || !confirm(`Замінити налаштування фідерів даними з "${file.name}" (${data.length} станцій)?`)) return;
+    for (const id of ALL_IDS) state.feeders[id] = defFeeder(id);
+    for (const r of data) {
+      const f = state.feeders[+r[iId]];
+      head.forEach((k, i) => { if (FIELDS[k] && k !== 'id') f[k] = coerce(FIELDS[k], r[i]); });
+    }
+    saveFeeders(); renderFeeders(); refresh(); toast(`Відновлено ${data.length} станцій`);
+  };
+  rd.readAsText(file);
+};
+
+// Import station calibration from an existing DPV
+$('#btnImportDpv').onclick = () => $('#fDpv').click();
+$('#fDpv').onchange = e => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const lines = String(rd.result).split(/\r?\n/);
+    const st = lines.map(l => l.split(',').map(s => s.trim())).filter(r => r[0] === 'Station' && ALL_IDS.includes(+r[2]));
+    const ph = {};
+    for (const r of lines.map(l => l.split(',').map(s => s.trim())).filter(r => r[0] === 'EComponent')) ph[+r[4]] = +r[3];
+    if (!st.length) { toast('У файлі немає рядків Station'); return; }
+    if (!confirm(`Імпортувати ${st.length} станцій з "${file.name}"?\nDeltX/DeltY, крок, висота, прапорці й параметри зору будуть перезаписані. Номінал/футпрінт заповнюються лише для порожніх фідерів.`)) return;
+    for (const r of st) {
+      const f = state.feeders[+r[2]], s = +r[9] || 0;
+      Object.assign(f, { deltX:num(r[3])||0, deltY:num(r[4])||0, feedRate:num(r[5])||0, height:num(r[7])||0, speed:+r[8]||0,
+        skip:!!(s&1), vacuum:!!(s&2), vision:!!(s&4), pauseEmpty:!!(s&8),
+        pixX:+r[10]||0, pixY:+r[11]||0, heightTake:num(r[12])||0, delayTake:+r[13]||0,
+        pullSpeed:+r[14]||0, threshold:+r[15]||0, visualRatio:+r[16]||0 });
+      if (ph[f.id] === 1 || ph[f.id] === 2) f.nozzle = ph[f.id];
+      if (!isCfg(f)) f.footprint = r[6] || '';
+    }
+    saveFeeders(); renderFeeders(); refresh(); toast(`Імпортовано ${st.length} станцій`);
+  };
+  rd.readAsText(file);
+};
+
+// Export
+$('#btnDownload').onclick = () => { if (lastRes && lastRes.placed.length) download(fileBase() + '.dpv', buildDpv(lastRes)); };
+$('#btnPreview').onclick = () => {
+  const pre = $('#outPreview'); pre.classList.toggle('hidden');
+  $('#btnPreview').textContent = pre.classList.contains('hidden') ? 'Переглянути' : 'Сховати';
+  refresh();
+};
+
+// Theme
+function applyTheme(t){ if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; }
+try { applyTheme(localStorage.getItem(LS.theme)); } catch(_){}
+$('#btnTheme').onclick = () => {
+  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  const t = dark ? 'light' : 'dark'; applyTheme(t); try { localStorage.setItem(LS.theme, t); } catch(_){}
+};
+
+// Feeder dialog
+const DLG = [
+  ['type','Тип компонента','type'], ['value','Номінал'], ['footprint','Футпрінт'],
+  ['note','Note (порожньо = номінал + футпрінт)'],
+  ['tape','Ширина стрічки, мм','tape'], ['feedRate','Крок подачі FeedRates, мм','num'],
+  ['height','Висота компонента, мм (забір)','num'], ['placeHeight','Висота при встановленні, мм (порожньо = як вище)','num'],
+  ['nozzle','Сопло (PHead)','noz'], ['rotOffset','Корекція кута, ° (додається до кута з CSV)','num'],
+  ['deltX','DeltX — калібрування кармана, мм','num'], ['deltY','DeltY — калібрування кармана, мм','num'],
+  ['speed','Швидкість переносу, % (0 = 100%)','num'], ['pullSpeed','Швидкість протяжки, % (0 = макс.)','num'],
+  ['delayTake','Затримка забору, cs','num'], ['placeDelay','Delay (EComponent)','num'],
+  ['threshold','nThreshold (0 або 1–256)','num'], ['visualRatio','nVisualRadio, %','num'],
+  ['pixX','nPixSizeX, пікс.','num'], ['pixY','nPixSizeY, пікс.','num'], ['heightTake','HeightTake','num'],
+  ['skip','Пропускати (Status 1)','bool'], ['vacuum','Контроль вакууму (Status 2)','bool'],
+  ['vision','Камера / vision (Status 4)','bool'], ['pauseEmpty','Пауза, коли закінчились (Status 8)','bool']
+];
+function openDialog(id){
+  const f = state.feeders[id], tray = id >= 71;
+  const field = ([k, label, kind]) => {
+    if (tray && (k === 'tape' || k === 'feedRate' || k === 'pullSpeed')) return '';
+    let inp;
+    if (kind === 'type') inp = `<select name="${k}">${TYPES.map(t => `<option${t===f.type?' selected':''} value="${t}">${t||'—'}</option>`).join('')}</select>`;
+    else if (kind === 'tape') inp = `<select name="${k}">${[8,12,16,24].map(t => `<option${t===f.tape?' selected':''}>${t}</option>`).join('')}</select>`;
+    else if (kind === 'noz') inp = `<select name="${k}">${[1,2].map(t => `<option${t===f.nozzle?' selected':''}>${t}</option>`).join('')}</select>`;
+    else if (kind === 'bool') inp = `<input type="checkbox" name="${k}"${f[k] ? ' checked' : ''}>`;
+    else if (kind === 'num') inp = `<input type="number" step="any" name="${k}" value="${esc(f[k])}">`;
+    else inp = `<input name="${k}" value="${esc(f[k])}">`;
+    return `<label for="">${esc(label)}</label>${inp}`;
+  };
+  $('#dlgForm').innerHTML = `<h3>Станція #${id} <span class="muted small">${tray ? 'передній лоток' : (id < 36 ? 'ліва сторона' : 'права сторона')}</span></h3>
+    <div class="grid2">${DLG.map(field).join('')}</div>
+    <div class="foot"><button type="button" id="dlgClear">Очистити</button><span class="sp"></span>
+      <button value="cancel" formnovalidate>Скасувати</button><button value="ok" class="primary">Зберегти</button></div>`;
+  $('#dlgClear').onclick = () => {
+    if (!confirm(`Очистити станцію #${id}?`)) return;
+    state.feeders[id] = defFeeder(id); saveFeeders(); refreshRow(id); refresh(); $('#dlg').close('x');
+  };
+  const dlg = $('#dlg');
+  dlg.onclose = () => {
+    if (dlg.returnValue !== 'ok') return;
+    const fd = $('#dlgForm');
+    for (const [k,,kind] of DLG) {
+      const el = fd.elements[k]; if (!el) continue;
+      f[k] = kind === 'bool' ? el.checked : coerce(FIELDS[k], el.value);
+    }
+    saveFeeders(); refreshRow(id); refresh();
+  };
+  dlg.returnValue = '';
+  dlg.showModal();
+}
+
+let toastT;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
+
+if (state.csv) state.parsed = parseCoords(state.csv.text);
+$('#onlyMissing').checked = !!state.project.onlyMissing;
+renderProject(); renderFeeders(); renderCsvInfo(); refresh();
+</script>
+</body>
+</html>
