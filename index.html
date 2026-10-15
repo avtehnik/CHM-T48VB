@@ -65,6 +65,9 @@ th{font-size:11px;color:var(--muted);font-weight:600;position:sticky;top:0;backg
 .feeders tr.hl td{background:var(--hl)}
 .chip{border-radius:10px;padding:1px 4px;font-size:11px;border:1px solid var(--border)}
 .t8{background:var(--t8)}.t12{background:var(--t12)}.t16{background:var(--t16)}.t24{background:var(--t24)}.t0,.tray{background:var(--tray)}
+.arrow{fill:var(--muted);vertical-align:middle}
+.arrow.polar{fill:var(--accent)}
+button.orient{padding:1px 3px}
 .badge{display:inline-block;min-width:20px;text-align:center;border-radius:9px;font-size:11px;font-weight:700;padding:0 4px;background:var(--accent-weak);color:var(--accent)}
 .badge:empty{display:none}
 .groups td{font-size:12px}
@@ -103,7 +106,7 @@ dialog .foot .sp{flex:1}
 <body>
 <header>
   <h1>CHM-T48VB · підготовка проекту</h1>
-  <label class="muted">Проект</label><input id="pname" data-p="name" placeholder="ім'я файлу .dpv" style="width:200px">
+  <label class="muted">Проект</label><input id="pname" data-p="name" placeholder="ім'я файлу .dpv (= ім'я CSV)" title="Береться з імені CSV при завантаженні; можна змінити" style="width:200px">
   <span class="grow"></span>
   <button id="btnBackup" title="Зберегти налаштування фідерів у CSV">⬇ Бекап фідерів (CSV)</button>
   <button id="btnRestore" title="Відновити налаштування фідерів з CSV">⬆ Відновити з CSV</button>
@@ -117,7 +120,7 @@ dialog .foot .sp{flex:1}
   <section class="top">
     <div class="card">
       <h2>Файл координат (CSV)</h2>
-      <div class="drop" id="drop"><b>Оберіть або перетягніть CSV</b><br><span class="small">KiCad .pos/.csv, Altium, EasyEDA — колонки визначаються автоматично</span></div>
+      <div class="drop" id="drop"><b>Оберіть або перетягніть CSV</b> <span class="small">(можна кинути будь-куди на сторінку)</span><br><span class="small">KiCad .pos/.csv, Altium, EasyEDA — колонки визначаються автоматично</span></div>
       <input type="file" id="fCsv" accept=".csv,.txt,.pos,text/csv" class="hidden">
       <div id="csvInfo" class="small" style="margin-top:8px"></div>
       <div class="grid2" style="margin-top:10px">
@@ -146,7 +149,7 @@ dialog .foot .sp{flex:1}
         <label>Пропустити плати</label>
         <input data-p="skipBoards" placeholder="номери 1…N через кому">
         <label>Точки калібрування</label>
-        <select data-p="calib"><option value="auto">Авто: 3 компоненти (UL, LR, LL)</option><option value="none">Немає</option></select>
+        <select data-p="calib"><option value="auto">Авто: 3 компоненти (UL, LR, LL)</option><option value="manual">Вручну (3 точки)</option><option value="none">Немає</option></select>
         <label>Станції у файлі</label>
         <select data-p="onlyUsed"><option value="1">Лише задіяні</option><option value="0">Всі налаштовані</option></select>
       </div>
@@ -175,7 +178,7 @@ dialog .foot .sp{flex:1}
     <div class="card">
       <h2>Прев'ю розміщення</h2>
       <svg class="preview" id="preview"></svg>
-      <div class="small muted" style="margin-top:6px">● призначені &nbsp; <span class="err">●</span> без фідера &nbsp; <span class="warn">◆</span> точки калібрування</div>
+      <div class="small muted" style="margin-top:6px">● призначені &nbsp; <span class="err">●</span> без фідера &nbsp; <span class="warn">◆</span> точки калібрування &nbsp; <span class="ok">▲</span> орієнтація полярних (верх футпрінта) &nbsp; <span class="err">▲</span> полярні без фідера</div>
     </div>
   </section>
 
@@ -206,6 +209,16 @@ const range = (a,b) => Array.from({length:b-a+1}, (_,i)=>a+i);
 const LEFT = range(1,29), RIGHT = range(36,64), TRAY = range(71,84);
 const ALL_IDS = [...LEFT, ...RIGHT, ...TRAY];
 const TYPES = ['', 'R', 'C', 'L', 'D', 'LED', 'Q', 'IC', 'Crystal', 'Conn', 'Btn', 'Fuse', 'Other'];
+// Types where orientation matters; any feeder can also be marked polar explicitly.
+const POLAR_TYPES = new Set(['D', 'LED', 'Q', 'IC', 'Conn', 'Crystal']);
+const isPolar = f => !!f && (f.polar || POLAR_TYPES.has(f.type));
+// Orientation of the part in the feeder (CCW°, 0 = footprint's 0° "up" toward the back of the machine).
+// Display only: the .dpv angle is NOT compensated; the preview shows where the part ends up (orientation + angle).
+const feederOrient = f => normAngle(+f.orient || 0);
+// Older saves/backups stored the compensation as rotOffset = −orientation.
+function migrateOrient(f){ if (f.rotOffset !== undefined) { if (f.orient === undefined || f.orient === 0) f.orient = normAngle(-(+f.rotOffset || 0)); delete f.rotOffset; } return f; }
+// Arrow pointing to the footprint's +Y at 0°; screen y is down, so CCW angle θ → rotate(−θ).
+const arrowSvg = (deg, cls = '') => `<svg class="arrow ${cls}" viewBox="-6 -6 12 12" width="14" height="14"><path d="M0,-5 L4,2 L1,1 L1,5 L-1,5 L-1,1 L-4,2 Z" transform="rotate(${-deg})"/></svg>`;
 
 // Per HDS spec: each reel set = 22×8mm, 3×12mm, 3×16mm, 1×24mm (editable per feeder).
 function defaultTape(id){
@@ -216,17 +229,17 @@ function defaultTape(id){
 function defFeeder(id){
   const tray = id >= 71;
   return { id, tape:defaultTape(id), type:'', value:'', footprint:'', note:'',
-    height:0.5, placeHeight:'', feedRate: tray ? 0 : 4, nozzle:1, rotOffset:0,
-    deltX:0, deltY:0, speed:0, skip:false, vacuum:false, vision:true, pauseEmpty:false,
+    height:0.5, placeHeight:'', feedRate: tray ? 0 : 4, nozzle:1, orient:0,
+    deltX:0, deltY:0, speed:0, skip:false, vacuum:false, vision:true, pauseEmpty:false, polar:false,
     delayTake:0, pullSpeed:0, threshold:0, visualRatio:0, pixX:0, pixY:0, heightTake:0, placeDelay:0 };
 }
 // key → kind, used for CSV backup/restore and dialog coercion
 const FIELDS = { id:'int', tape:'int', type:'str', value:'str', footprint:'str', note:'str',
-  height:'num', placeHeight:'optnum', feedRate:'num', nozzle:'int', rotOffset:'num',
-  deltX:'num', deltY:'num', speed:'int', skip:'bool', vacuum:'bool', vision:'bool', pauseEmpty:'bool',
+  height:'num', placeHeight:'optnum', feedRate:'num', nozzle:'int', orient:'num',
+  deltX:'num', deltY:'num', speed:'int', skip:'bool', vacuum:'bool', vision:'bool', pauseEmpty:'bool', polar:'bool',
   delayTake:'int', pullSpeed:'int', threshold:'int', visualRatio:'int', pixX:'int', pixY:'int', heightTake:'num', placeDelay:'int' };
 const DEF_PROJECT = { name:'', side:'top', offX:0, offY:0, mirrorX:false, boardW:100, invertY:false, rotOff:0, exclude:'',
-  nx:1, ny:1, ix:0, iy:0, skipBoards:'', calib:'auto', onlyUsed:'1', cFeeder:{}, cType:{}, cRot:{}, onlyMissing:false };
+  nx:1, ny:1, ix:0, iy:0, skipBoards:'', calib:'auto', calPts:[{n:'UL',x:0,y:0},{n:'LR',x:0,y:0},{n:'LL',x:0,y:0}], onlyUsed:'1', cFeeder:{}, cType:{}, cRot:{}, onlyMissing:false };
 
 function coerce(kind, v){
   if (kind === 'bool') return v === true || v === 1 || /^(1|true|yes|так|x)$/i.test(String(v).trim());
@@ -247,10 +260,12 @@ function store(key, val){ try { localStorage.setItem(key, JSON.stringify(val)); 
 const state = { feeders:{}, project:{}, csv:null, parsed:null };
 (function init(){
   const sf = load(LS.feeders, {}) || {};
-  for (const id of ALL_IDS) state.feeders[id] = Object.assign(defFeeder(id), sf[id] || {}, { id });
+  for (const id of ALL_IDS) state.feeders[id] = migrateOrient(Object.assign(defFeeder(id), sf[id] || {}, { id }));
   state.project = Object.assign({}, DEF_PROJECT, load(LS.project, {}) || {});
   for (const k of ['cFeeder', 'cType', 'cRot']) state.project[k] = state.project[k] || {};
   for (const k of ['overrides', 'typeOverrides', 'rotSet', 'rotOverrides']) delete state.project[k]; // old per-group settings
+  const cp = state.project.calPts;
+  state.project.calPts = (Array.isArray(cp) && cp.length === 3 ? cp : DEF_PROJECT.calPts).map(c => ({...c}));
   state.csv = load(LS.csv, null);
 })();
 function saveFeeders(){ if (!store(LS.feeders, state.feeders)) toast('Не вдалося зберегти у localStorage'); }
@@ -261,9 +276,10 @@ const norm = s => String(s ?? '').trim().toLowerCase();
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clean = s => String(s ?? '').replace(/[,\r\n"]/g, ' ').replace(/[^\x20-\x7E]/g, '_').replace(/\s+/g, ' ').trim();
 const fmt = n => { const r = Math.round((+n || 0) * 100) / 100; return Object.is(r, -0) ? '0' : String(r); };
-const normAngle = a => { a = ((a % 360) + 360) % 360; if (a > 180) a -= 360; return Math.round(a * 100) / 100; };
+// Function declaration (hoisted): also used by init() when migrating old saves.
+function normAngle(a){ a = ((a % 360) + 360) % 360; if (a > 180) a -= 360; return Math.round(a * 100) / 100; }
 const statusOf = f => (f.skip?1:0) | (f.vacuum?2:0) | (f.vision?4:0) | (f.pauseEmpty?8:0);
-const noteOf = f => clean(f.note.trim() || [f.value, f.footprint].map(s => s.trim()).filter(Boolean).join(' '));
+const noteOf = f => clean(f.note.trim() || [...new Set([f.value, f.footprint].map(s => s.trim()).filter(Boolean))].join(' '));
 
 // ---------- CSV parsing ----------
 function detectDelim(text){
@@ -383,6 +399,24 @@ function autoMatch(type, val, pkg){
   if (!near.tk) return { id:null, why:`#${f.id}: тип ${f.type || '—'} ≠ ${type || 'Other'}` };
   return { id:null, why:`#${f.id}: номінал ${f.value || '—'} ≠ ${val || '—'}` };
 }
+const triArea = (a, b, c) => Math.abs((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y)) / 2;
+// UL, LR, LL over every component (placed or not — only its position matters) on every panel board.
+// Points must be distinct and not collinear; LR falls back to the candidate giving the largest triangle.
+function autoCalib(res){
+  const pts = [], seen = new Set();
+  for (const bd of res.panel.boards) for (const r of res.rows) {
+    const x = r.x + bd.dx, y = r.y + bd.dy, k = fmt(x) + ',' + fmt(y);
+    if (!seen.has(k)) { seen.add(k); pts.push({ x, y, note:`P${bd.b}-${r.ref}` }); }
+  }
+  if (!pts.length) return [];
+  const pick = (score, excl) => pts.filter(p => !excl.includes(p)).reduce((a, p) => !a || score(p) > score(a) ? p : a, null);
+  const ll = pick(p => -(p.x + p.y), []);
+  const ul = pick(p => p.y - p.x, [ll]) || ll;
+  let lr = pick(p => p.x - p.y, [ll, ul]) || ll;
+  const span = Math.max(...pts.map(p => Math.hypot(p.x - ll.x, p.y - ll.y)), 1);
+  if (triArea(ul, lr, ll) < span * 2) lr = pick(p => triArea(ul, p, ll), [ll, ul]) || lr;
+  return [ul, lr, ll];
+}
 function boardList(P){
   const nx = Math.max(1, P.nx|0), ny = Math.max(1, P.ny|0);
   const skip = new Set(String(P.skipBoards).split(/[\s,;]+/).map(Number).filter(n => n >= 1));
@@ -426,20 +460,21 @@ function compute(){
 
   // calibration points: UL, LR, LL over all panel boards (matches CHMT's own "P<board>-<ref>" choice)
   res.panel = boardList(P);
-  if (P.calib === 'auto' && res.placed.length) {
-    let ul, lr, ll;
-    for (const bd of res.panel.boards) for (const p of res.placed) {
-      const x = p.x + bd.dx, y = p.y + bd.dy, pt = { x, y, note:`P${bd.b}-${p.ref}` };
-      if (!ul || x - y < ul.x - ul.y) ul = pt;
-      if (!lr || x - y > lr.x - lr.y) lr = pt;
-      if (!ll || x + y < ll.x + ll.y) ll = pt;
-    }
-    res.calib = [ul, lr, ll];
+  if (P.calib === 'auto') res.calib = autoCalib(res);
+  else if (P.calib === 'manual') res.calib = P.calPts.map(c => ({ x:+c.x || 0, y:+c.y || 0, note:c.n || '' }));
+  if (res.calib.length === 3) {
+    const [ul, lr, ll] = res.calib, span = Math.max(Math.hypot(ul.x-ll.x, ul.y-ll.y), Math.hypot(lr.x-ll.x, lr.y-ll.y), 1);
+    if (triArea(ul, lr, ll) < span * 2) res.blocking = true, res.errors.push('Точки калібрування лежать на одній прямій або збігаються — машина не зможе відкалібрувати плату. Задайте точки вручну (напр. кути плати, отвори, фідуціали).');
   }
+  // CHMT bug: the LR point is only offered for calibration when the file has ≥2 EComponent rows.
+  // Use another (not placed) component at its real position as the skipped second row — never a duplicate of the first.
+  res.calSkip = res.calib.length && res.placed.length === 1 ? res.rows.find(r => r !== res.placed[0] && (fmt(r.x) !== fmt(res.placed[0].x) || fmt(r.y) !== fmt(res.placed[0].y))) || null : null;
 
   // diagnostics
   if (res.unplaced.length) res.errors.push(`Без фідера: ${res.unplaced.length} шт. (${res.unplaced.slice(0,8).map(r=>r.ref).join(', ')}${res.unplaced.length>8?'…':''}) — не потраплять у файл`);
-  if (res.placed.length === 1) res.warnings.push('Лише 1 компонент — CHMT потребує ≥2 для калібрування LR');
+  if (res.placed.length === 1) res.warnings.push(res.calSkip
+    ? `Лише 1 компонент — додано ${res.calSkip.ref} як рядок з прапорцем Skip (не ставиться), інакше CHMT не покаже точку LR`
+    : 'Лише 1 компонент — CHMT не покаже точку LR при калібруванні. Додайте ще один компонент (його можна поставити на станцію зі Skip)');
   const neg = res.placed.filter(p => p.x < 0 || p.y < 0);
   if (neg.length) res.warnings.push(`Від'ємні координати: ${neg.slice(0,6).map(p=>p.ref).join(', ')}${neg.length>6?'…':''} — задайте зсув або перевірте початок координат`);
   const hi = res.stations.filter(f => f.height > 5);
@@ -470,9 +505,14 @@ function buildDpv(res){
   L.push(`Panel_Array,0,1,${fmt(P.ix)},${fmt(P.iy)},${res.panel.nx},${res.panel.ny}`);
   res.panel.skip.forEach((b, i) => L.push(`Panel_Array,${i+1},${b},0,0,0,0`));
   L.push('', '', '', 'Table,No.,ID,PHead,STNo.,DeltX,DeltY,Angle,Height,Skip,Speed,Explain,Note,Delay', '');
-  res.placed.forEach((p, i) => {
+  // EComponent.Skip has its own bits: 1 = skip, 2 = use vision. The machine saves Station Status 6 (vacuum+vision)
+  // as 2 here, and with 0 it places without the camera even when the station has vision on.
+  const compFlags = f => (f.skip ? 1 : 0) | (f.vision ? 2 : 0);
+  const ecomp = res.placed.map(p => ({ p, x:p.x, y:p.y, angle:p.angle, ref:p.ref, skip:compFlags(p.f) }));
+  if (res.calSkip) { const p = res.placed[0], q = res.calSkip; ecomp.push({ p, x:q.x, y:q.y, angle:p.angle, ref:q.ref, skip:compFlags(p.f) | 1 }); }
+  ecomp.forEach(({ p, x, y, angle, ref, skip }, i) => {
     const f = p.f, ph = f.placeHeight === '' ? f.height : f.placeHeight;
-    L.push(`EComponent,${i},${i+1},${f.nozzle === 2 ? 2 : 1},${f.id},${fmt(p.x)},${fmt(p.y)},${fmt(p.angle)},${fmt(ph)},${statusOf(f)},${f.speed|0},${clean(p.ref)},${noteOf(f)},${f.placeDelay|0}`, '');
+    L.push(`EComponent,${i},${i+1},${f.nozzle === 2 ? 2 : 1},${f.id},${fmt(x)},${fmt(y)},${fmt(angle)},${fmt(ph)},${skip},${f.speed|0},${clean(ref)},${noteOf(f)},${f.placeDelay|0}`, '');
   });
   L.push('', '', 'Table,No.,ID,CenterX,CenterY,IntervalX,IntervalY,NumX,NumY,Start', '', '', '');
   L.push('Table,No.,nType,nAlg,nFinished', '', 'PcbCalib,0,0,0,0', '');
@@ -503,12 +543,13 @@ function feederRow(f){
     <td><input data-f="height" type="number" step="0.1" min="0" value="${f.height}" title="Висота, мм"></td>
     ${tray ? '' : `<td><input data-f="feedRate" type="number" step="2" min="0" value="${f.feedRate}" title="Крок подачі (FeedRates), мм"></td>`}
     <td><select data-f="nozzle" title="Сопло">${opt(1, f.nozzle)}${opt(2, f.nozzle)}</select></td>
+    <td><button type="button" class="icon orient" data-rot="${f.id}" title="Орієнтація в фідері: ${fmt(feederOrient(f))}° (стрілка = верх футпрінта при 0°, вгору = до задньої частини машини)${isPolar(f) ? ', полярний' : ''}. Клік — повернути на 90° проти год. стрілки">${arrowSvg(feederOrient(f), isPolar(f) ? 'polar' : '')}</button></td>
     <td><span class="badge" data-badge="${f.id}" title="Кількість компонентів"></span></td>
     <td><button type="button" class="icon" data-edit="${f.id}" title="Усі параметри">⚙</button></td>
   </tr>`;
 }
-const FEEDER_HEAD = '<thead><tr><th>ID</th><th>мм</th><th>Тип</th><th>Номінал</th><th>Футпрінт</th><th>H</th><th>Крок</th><th>Сопло</th><th>#</th><th></th></tr></thead>';
-const TRAY_HEAD = '<thead><tr><th>ID</th><th>Тип</th><th>Номінал</th><th>Футпрінт</th><th>H</th><th>Сопло</th><th>#</th><th></th></tr></thead>';
+const FEEDER_HEAD = '<thead><tr><th>ID</th><th>мм</th><th>Тип</th><th>Номінал</th><th>Футпрінт</th><th>H</th><th>Крок</th><th>Сопло</th><th title="Орієнтація компонента в фідері">↻</th><th>#</th><th></th></tr></thead>';
+const TRAY_HEAD = '<thead><tr><th>ID</th><th>Тип</th><th>Номінал</th><th>Футпрінт</th><th>H</th><th>Сопло</th><th title="Орієнтація компонента в лотку">↻</th><th>#</th><th></th></tr></thead>';
 function renderFeeders(){
   $('#fLeft').innerHTML = FEEDER_HEAD + '<tbody>' + LEFT.map(id => feederRow(state.feeders[id])).join('') + '</tbody>';
   $('#fRight').innerHTML = FEEDER_HEAD + '<tbody>' + RIGHT.map(id => feederRow(state.feeders[id])).join('') + '</tbody>';
@@ -542,11 +583,19 @@ function stationSelect(r, common){
   return `<select data-cf="${esc(r.ref)}" title="${esc(r.station ? '' : r.why || '')}">${opts}</select>`;
 }
 // Component Rotation: edited value replaces the CSV one (undefined = keep CSV).
-const angleOf = r => normAngle((r.rotSet ?? r.c.rot) + (+state.project.rotOff || 0) + (+r.f.rotOffset || 0));
+const angleOf = r => normAngle((r.rotSet ?? r.c.rot) + (+state.project.rotOff || 0));
+// Where the part's 0° "up" ends up on the board: orientation in the feeder + machine rotation.
+// Without a feeder the part is assumed to lie at 0° in the stack.
+const resultDir = r => normAngle((r.f ? feederOrient(r.f) : 0) + angleOf(r));
+// Polarity comes from the component's own type (D, LED, IC, Conn, Q, Crystal) or a feeder marked polar.
+const isPolarRow = r => POLAR_TYPES.has(r.type) || isPolar(r.f);
 function rotTitle(r){
   const P = state.project, f = r.f;
-  const rot = r.rotSet !== undefined ? `Rotation ${fmt(r.rotSet)} (у CSV ${fmt(r.c.rot)})` : `Rotation ${fmt(r.c.rot)}`;
-  return 'Кут: ' + [rot, `глоб. ${fmt(+P.rotOff || 0)}`, f ? `фідер #${f.id} ${fmt(+f.rotOffset || 0)}` : 'фідер —'].join(' + ') + (f ? ` = ${fmt(angleOf(r))}°` : '');
+  const parts = [`кут у .dpv ${fmt(angleOf(r))}°` + (+P.rotOff ? ` (вкл. глоб. ${fmt(+P.rotOff)}°)` : '')];
+  if (f) parts.push(`орієнтація в фідері #${f.id}: ${fmt(feederOrient(f))}°`, `результат: ${fmt(resultDir(r))}°`);
+  else parts.push('без фідера — стрілка за умови, що деталь лежить під 0°');
+  if (r.rotSet !== undefined) parts.push(`у CSV ${fmt(r.c.rot)}`);
+  return parts.join(' · ');
 }
 let lastRes = null;
 function refresh(){
@@ -560,13 +609,12 @@ function refresh(){
     const typeSel = r => `<select data-ct="${esc(r.ref)}" title="Тип визначено за позначенням: ${esc(r.typeGuess || '?')}">${TYPES.map(t => `<option value="${t}"${t === r.type ? ' selected' : ''}>${t || '—'}</option>`).join('')}</select>`;
     const rotIn = r => { const set = r.rotSet !== undefined;
       return `<input type="number" step="90" data-cr="${esc(r.ref)}" value="${fmt(set ? r.rotSet : r.c.rot)}" class="${set ? 'edited' : ''}" title="${esc(set ? `Змінено; у CSV ${fmt(r.c.rot)}. Очистіть поле, щоб повернути` : 'З CSV')}">`; };
-    $('#groups').innerHTML = '<thead><tr><th>Позн.</th><th>Тип</th><th>Номінал</th><th>Футпрінт</th><th>X</th><th>Y</th><th title="Rotation з CSV; можна змінити, порожньо = як у CSV">Rotation</th><th title="Підсумковий кут у .dpv: Rotation + глоб. поворот + корекція фідера">Кут</th><th>Фідер</th></tr></thead><tbody>' +
+    $('#groups').innerHTML = '<thead><tr><th>Позн.</th><th>Тип</th><th>Номінал</th><th>Футпрінт</th><th>X</th><th>Y</th><th title="Кут у .dpv (з CSV; можна змінити, порожньо = як у CSV). Стрілка — як компонент ляже на плату">Rotation</th><th>Фідер</th></tr></thead><tbody>' +
       rows.map(r => `<tr class="${r.excluded ? 'dnp' : r.f ? '' : 'miss'}" data-hl="${r.f ? r.f.id : ''}">
         <td><b>${esc(r.ref)}</b></td><td>${typeSel(r)}</td>
         <td class="refs" title="${esc(r.val)}">${esc(r.val)}</td><td class="refs" title="${esc(r.pkg)}">${esc(r.pkg)}</td>
         <td>${fmt(r.x)}</td><td>${fmt(r.y)}</td>
-        <td>${rotIn(r)}</td>
-        <td title="${esc(rotTitle(r))}"><b>${r.f && !r.excluded ? fmt(angleOf(r)) : '—'}</b></td>
+        <td style="white-space:nowrap" title="${esc(rotTitle(r))}">${rotIn(r)} ${!r.excluded ? arrowSvg(resultDir(r), isPolarRow(r) ? 'polar' : '') : ''}</td>
         <td>${stationSelect(r, common)}</td></tr>`).join('') + '</tbody>';
   }
   $('#compCount').textContent = res.rows.length ? `${res.rows.length} шт.` : '';
@@ -579,8 +627,13 @@ function refresh(){
   const m = [...res.errors.map(t => `<li class="err">${esc(t)}</li>`), ...res.warnings.map(t => `<li class="warn">${esc(t)}</li>`)];
   if (res.excluded) m.push(`<li class="muted">Виключено вручну: ${res.excluded}</li>`);
   $('#msgs').innerHTML = m.length ? `<ul class="msgs">${m.join('')}</ul>` : (res.placed.length ? '<span class="ok">Все готово до експорту</span>' : '');
-  $('#btnDownload').disabled = !res.placed.length;
-  $('#calibInfo').innerHTML = res.calib.length ? res.calib.map((c,i) => `${['UL','LR','LL'][i]}: ${esc(c.note)} (${fmt(c.x)}, ${fmt(c.y)})`).join('<br>') : '';
+  $('#btnDownload').disabled = !res.placed.length || !!res.blocking;
+  $('#btnDownload').title = res.blocking ? 'Спершу виправте точки калібрування' : '';
+  if (state.project.calib === 'manual') {
+    if (!$('#calibInfo [data-cal]')) $('#calibInfo').innerHTML = '<div class="grid2">' + state.project.calPts.map((c, i) =>
+      `<label>${['UL','LR','LL'][i]}</label><div class="row"><input data-cal="${i}:n" value="${esc(c.n)}" style="width:80px" title="Назва"> X <input type="number" step="0.01" data-cal="${i}:x" value="${c.x}"> Y <input type="number" step="0.01" data-cal="${i}:y" value="${c.y}"></div>`).join('') +
+      '</div><div class="small muted" style="margin-top:4px">Координати на панелі (плата №1 — ліва нижня), мм</div>';
+  } else $('#calibInfo').innerHTML = res.calib.length ? res.calib.map((c,i) => `${['UL','LR','LL'][i]}: ${esc(c.note)} (${fmt(c.x)}, ${fmt(c.y)})`).join('<br>') : '';
   if (!$('#outPreview').classList.contains('hidden')) $('#outPreview').textContent = res.placed.length ? buildDpv(res) : '';
   renderPreview(res);
 }
@@ -595,8 +648,8 @@ function renderPreview(res){
   const svg = $('#preview');
   const pts = [];
   for (const bd of (res.panel ? res.panel.boards : [])) {
-    for (const p of res.placed) pts.push({ x:p.x + bd.dx, y:p.y + bd.dy, ok:true, ref:p.ref, b:bd.b });
-    for (const p of res.unplaced) pts.push({ x:p.x + bd.dx, y:p.y + bd.dy, ok:false, ref:p.ref, b:bd.b });
+    for (const p of res.placed) pts.push({ x:p.x + bd.dx, y:p.y + bd.dy, ok:true, ref:p.ref, b:bd.b, polar:isPolarRow(p) });
+    for (const p of res.unplaced) pts.push({ x:p.x + bd.dx, y:p.y + bd.dy, ok:false, ref:p.ref, b:bd.b, polar:isPolarRow(p) });
   }
   if (!pts.length) { svg.innerHTML = ''; svg.removeAttribute('viewBox'); return; }
   let x0 = Math.min(0, ...pts.map(p=>p.x)), x1 = Math.max(...pts.map(p=>p.x)), y0 = Math.min(0, ...pts.map(p=>p.y)), y1 = Math.max(...pts.map(p=>p.y));
@@ -604,8 +657,15 @@ function renderPreview(res){
   const W = x1 - x0, H = y1 - y0, r = Math.max(W, H) / 150;
   const Y = y => (y1 - y + y0); // flip: machine Y grows toward the back (up on screen)
   let s = `<line x1="${x0}" y1="${Y(0)}" x2="${x1}" y2="${Y(0)}" stroke="var(--border)" stroke-width="${r/3}"/><line x1="0" y1="${y0}" x2="0" y2="${y1}" stroke="var(--border)" stroke-width="${r/3}"/>`;
-  for (const p of pts) s += `<circle cx="${p.x}" cy="${Y(p.y)}" r="${r}" fill="${p.ok ? 'var(--accent)' : 'var(--err)'}" opacity="${p.b ? .45 : .9}"><title>${esc(p.ref)} · плата ${p.b+1} · (${fmt(p.x)}, ${fmt(p.y)})</title></circle>`;
+  for (const p of pts) if (!p.polar) s += `<circle cx="${p.x}" cy="${Y(p.y)}" r="${r}" fill="${p.ok ? 'var(--accent)' : 'var(--err)'}" opacity="${p.b ? .45 : .9}"><title>${esc(p.ref)} · плата ${p.b+1} · (${fmt(p.x)}, ${fmt(p.y)})</title></circle>`;
   res.calib.forEach((c, i) => { s += `<rect x="${c.x - r*2}" y="${Y(c.y) - r*2}" width="${r*4}" height="${r*4}" transform="rotate(45 ${c.x} ${Y(c.y)})" fill="none" stroke="var(--warn)" stroke-width="${r/2}"><title>${['UL','LR','LL'][i]} ${esc(c.note)}</title></rect>`; });
+  // Resulting orientation of polar parts on the board: orientation in the feeder + machine rotation.
+  const al = r * 5;
+  for (const bd of res.panel.boards) for (const p of [...res.placed, ...res.unplaced]) {
+    if (!isPolarRow(p)) continue;
+    const a = resultDir(p), cx = p.x + bd.dx, cy = Y(p.y + bd.dy);
+    s += `<path d="M0,${-al} L${al*.7},${al*.55} L0,${al*.2} L${-al*.7},${al*.55} Z" transform="translate(${cx} ${cy}) rotate(${-a})" fill="${p.f ? 'var(--ok)' : 'var(--err)'}" opacity="${bd.b ? .4 : .95}"><title>${esc(p.ref)} · ${esc(rotTitle(p))}</title></path>`;
+  }
   svg.setAttribute('viewBox', `${x0} ${y0} ${W} ${H}`);
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   svg.innerHTML = s;
@@ -641,6 +701,10 @@ document.addEventListener('change', e => {
     const k = t.dataset.p, d = DEF_PROJECT[k];
     state.project[k] = t.type === 'checkbox' ? t.checked : typeof d === 'number' ? (num(t.value) || 0) : t.value;
     saveProject(); refresh();
+  } else if (t.dataset.cal) {
+    const [i, k] = t.dataset.cal.split(':'), c = state.project.calPts[+i];
+    c[k] = k === 'n' ? t.value : (num(t.value) || 0);
+    saveProject(); refresh();
   } else if (t.dataset.cr !== undefined) {
     const ref = t.dataset.cr, r = lastRes.rows.find(r => r.ref === ref);
     const v = t.value.trim() === '' ? null : normAngle(num(t.value) || 0);
@@ -670,6 +734,12 @@ document.addEventListener('change', e => {
   }
 });
 document.addEventListener('click', e => {
+  const rb = e.target.closest('[data-rot]');
+  if (rb) {
+    const f = state.feeders[+rb.dataset.rot];
+    f.orient = normAngle((+f.orient || 0) + 90); // +90° CCW
+    saveFeeders(); refreshRow(f.id); refresh(); return;
+  }
   const ed = e.target.closest('[data-edit]');
   if (ed) openDialog(+ed.dataset.edit);
   if (e.target.id === 'btnClearCsv') { state.csv = null; state.parsed = null; try { localStorage.removeItem(LS.csv); } catch(_){} renderCsvInfo(); refresh(); }
@@ -691,17 +761,38 @@ function loadCsvFile(file){
     state.csv = { name:file.name, text:String(rd.result) };
     state.parsed = parseCoords(state.csv.text);
     if (!store(LS.csv, state.csv)) toast('CSV завеликий для localStorage — після перезавантаження виберіть його знову');
-    if (!state.project.name.trim()) { state.project.name = file.name.replace(/\.[^.]+$/, ''); saveProject(); renderProject(); }
-    renderCsvInfo(); refresh();
+    // Output .dpv is named after the coordinates CSV; the header field can still override it afterwards.
+    state.project.name = file.name.replace(/\.[^.]+$/, ''); saveProject(); renderProject();
+    try { renderCsvInfo(); refresh(); }
+    catch (err) { console.error(err); toast('Помилка обробки файлу: ' + err.message); }
   };
+  rd.onerror = () => toast('Не вдалося прочитати файл');
   rd.readAsText(file);
 }
 const drop = $('#drop');
 drop.onclick = () => $('#fCsv').click();
 $('#fCsv').onchange = e => { if (e.target.files[0]) loadCsvFile(e.target.files[0]); e.target.value = ''; };
-drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
-drop.ondragleave = () => drop.classList.remove('over');
-drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) loadCsvFile(e.dataTransfer.files[0]); };
+// Drop anywhere on the page: a file dropped next to the zone must not make the browser open it instead.
+// .dpv goes to station import, .csv with an "id" column (feeder backup) to restore, everything else is coordinates.
+let dragDepth = 0;
+const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
+window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; drop.classList.add('over'); });
+window.addEventListener('dragover', e => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+window.addEventListener('dragleave', e => { if (!hasFiles(e)) return; if (--dragDepth <= 0) { dragDepth = 0; drop.classList.remove('over'); } });
+window.addEventListener('drop', e => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); dragDepth = 0; drop.classList.remove('over');
+  const file = e.dataTransfer.files[0]; if (!file) return;
+  if (/\.dpv$/i.test(file.name)) return feedInput('#fDpv', file);
+  file.slice(0, 2000).text().then(head => {
+    const first = head.replace(/^\uFEFF/, '').split(/\r?\n/)[0].split(/[,;\t]/).map(c => c.trim().replace(/"/g, ''));
+    if (first[0] === 'id' && first.includes('footprint')) feedInput('#fRestore', file); else loadCsvFile(file);
+  });
+});
+function feedInput(sel, file){
+  const dt = new DataTransfer(); dt.items.add(file);
+  const inp = $(sel); inp.files = dt.files; inp.dispatchEvent(new Event('change'));
+}
 
 // Backup / restore feeders
 const csvCell = v => { const s = typeof v === 'boolean' ? (v ? '1' : '0') : String(v ?? ''); return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
@@ -726,7 +817,8 @@ $('#fRestore').onchange = e => {
     for (const id of ALL_IDS) state.feeders[id] = defFeeder(id);
     for (const r of data) {
       const f = state.feeders[+r[iId]];
-      head.forEach((k, i) => { if (FIELDS[k] && k !== 'id') f[k] = coerce(FIELDS[k], r[i]); });
+      head.forEach((k, i) => { if (FIELDS[k] && k !== 'id') f[k] = coerce(FIELDS[k], r[i]); else if (k === 'rotOffset') f.rotOffset = num(r[i]) || 0; });
+      migrateOrient(f);
     }
     saveFeeders(); renderFeeders(); refresh(); toast(`Відновлено ${data.length} станцій`);
   };
@@ -781,14 +873,15 @@ const DLG = [
   ['note','Note (порожньо = номінал + футпрінт)'],
   ['tape','Ширина стрічки, мм','tape'], ['feedRate','Крок подачі FeedRates, мм','num'],
   ['height','Висота компонента, мм (забір)','num'], ['placeHeight','Висота при встановленні, мм (порожньо = як вище)','num'],
-  ['nozzle','Сопло (PHead)','noz'], ['rotOffset','Корекція кута, ° (додається до кута з CSV)','num'],
+  ['nozzle','Сопло (PHead)','noz'], ['orient','Орієнтація в фідері, ° проти год. (лише для прев\'ю; стрілка ↻ у таблиці)','num'],
   ['deltX','DeltX — калібрування кармана, мм','num'], ['deltY','DeltY — калібрування кармана, мм','num'],
   ['speed','Швидкість переносу, % (0 = 100%)','num'], ['pullSpeed','Швидкість протяжки, % (0 = макс.)','num'],
   ['delayTake','Затримка забору, cs','num'], ['placeDelay','Delay (EComponent)','num'],
   ['threshold','nThreshold (0 або 1–256)','num'], ['visualRatio','nVisualRadio, %','num'],
   ['pixX','nPixSizeX, пікс.','num'], ['pixY','nPixSizeY, пікс.','num'], ['heightTake','HeightTake','num'],
   ['skip','Пропускати (Status 1)','bool'], ['vacuum','Контроль вакууму (Status 2)','bool'],
-  ['vision','Камера / vision (Status 4)','bool'], ['pauseEmpty','Пауза, коли закінчились (Status 8)','bool']
+  ['vision','Камера / vision (Status 4)','bool'], ['pauseEmpty','Пауза, коли закінчились (Status 8)','bool'],
+  ['polar','Полярний — показувати орієнтацію в прев\'ю (D, LED, Q, IC, Conn, Crystal — завжди)','bool']
 ];
 function openDialog(id){
   const f = state.feeders[id], tray = id >= 71;
