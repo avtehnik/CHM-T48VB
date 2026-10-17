@@ -59,6 +59,7 @@ th{font-size:11px;color:var(--muted);font-weight:600;position:sticky;top:0;backg
 .feeders input[data-f=value],.feeders input[data-f=footprint]{width:100%}
 .feeders input[type=number]{width:52px}
 .feeders select[data-f=type]{width:64px}
+.feeders select[data-f=feedRate]{width:52px}
 .feeders td.sid{font-weight:700;width:30px;text-align:right;padding-right:6px}
 .feeders tr.empty input,.feeders tr.empty select{opacity:.55}
 .feeders tr.skipped td.sid{text-decoration:line-through;color:var(--muted)}
@@ -210,6 +211,11 @@ const LEFT = range(1,29), RIGHT = range(36,64), TRAY = range(71,84);
 const ALL_IDS = [...LEFT, ...RIGHT, ...TRAY];
 const TYPES = ['', 'R', 'C', 'L', 'D', 'LED', 'Q', 'IC', 'Crystal', 'Conn', 'Btn', 'Fuse', 'Other'];
 // Types where orientation matters; any feeder can also be marked polar explicitly.
+// Standard EIA-481 tape pitches, mm (2 = 0402/0201 paper tape, 4 = most passives, 8+ = larger parts).
+const PITCHES = [2, 4, 8, 12, 16, 20, 24];
+// Options for the pitch select; a non-standard value from an imported/old feeder is kept as an extra option.
+const pitchOptions = cur => [...new Set([...PITCHES, +cur || 0].filter(Boolean))].sort((a,b) => a-b)
+  .map(v => `<option value="${v}"${v === +cur ? ' selected' : ''}>${v}${PITCHES.includes(v) ? '' : ' (нестанд.)'}</option>`).join('');
 const POLAR_TYPES = new Set(['D', 'LED', 'Q', 'IC', 'Conn', 'Crystal']);
 const isPolar = f => !!f && (f.polar || POLAR_TYPES.has(f.type));
 // Orientation of the part in the feeder (CCW°, 0 = footprint's 0° "up" toward the back of the machine).
@@ -541,7 +547,7 @@ function feederRow(f){
     <td><input data-f="value" value="${esc(f.value)}" placeholder="номінал"></td>
     <td><input data-f="footprint" value="${esc(f.footprint)}" placeholder="футпрінт"></td>
     <td><input data-f="height" type="number" step="0.1" min="0" value="${f.height}" title="Висота, мм"></td>
-    ${tray ? '' : `<td><input data-f="feedRate" type="number" step="2" min="0" value="${f.feedRate}" title="Крок подачі (FeedRates), мм"></td>`}
+    ${tray ? '' : `<td><select data-f="feedRate" title="Крок подачі (FeedRates), мм">${pitchOptions(f.feedRate)}</select></td>`}
     <td><select data-f="nozzle" title="Сопло">${opt(1, f.nozzle)}${opt(2, f.nozzle)}</select></td>
     <td><button type="button" class="icon orient" data-rot="${f.id}" title="Орієнтація в фідері: ${fmt(feederOrient(f))}° (стрілка = верх футпрінта при 0°, вгору = до задньої частини машини)${isPolar(f) ? ', полярний' : ''}. Клік — повернути на 90° проти год. стрілки">${arrowSvg(feederOrient(f), isPolar(f) ? 'polar' : '')}</button></td>
     <td><span class="badge" data-badge="${f.id}" title="Кількість компонентів"></span></td>
@@ -871,7 +877,7 @@ $('#btnTheme').onclick = () => {
 const DLG = [
   ['type','Тип компонента','type'], ['value','Номінал'], ['footprint','Футпрінт'],
   ['note','Note (порожньо = номінал + футпрінт)'],
-  ['tape','Ширина стрічки, мм','tape'], ['feedRate','Крок подачі FeedRates, мм','num'],
+  ['tape','Ширина стрічки, мм','tape'], ['feedRate','Крок подачі FeedRates, мм','pitch'],
   ['height','Висота компонента, мм (забір)','num'], ['placeHeight','Висота при встановленні, мм (порожньо = як вище)','num'],
   ['nozzle','Сопло (PHead)','noz'], ['orient','Орієнтація в фідері, ° проти год. (лише для прев\'ю; стрілка ↻ у таблиці)','num'],
   ['deltX','DeltX — калібрування кармана, мм','num'], ['deltY','DeltY — калібрування кармана, мм','num'],
@@ -890,6 +896,7 @@ function openDialog(id){
     let inp;
     if (kind === 'type') inp = `<select name="${k}">${TYPES.map(t => `<option${t===f.type?' selected':''} value="${t}">${t||'—'}</option>`).join('')}</select>`;
     else if (kind === 'tape') inp = `<select name="${k}">${[8,12,16,24].map(t => `<option${t===f.tape?' selected':''}>${t}</option>`).join('')}</select>`;
+    else if (kind === 'pitch') inp = `<select name="${k}">${pitchOptions(f[k])}</select>`;
     else if (kind === 'noz') inp = `<select name="${k}">${[1,2].map(t => `<option${t===f.nozzle?' selected':''}>${t}</option>`).join('')}</select>`;
     else if (kind === 'bool') inp = `<input type="checkbox" name="${k}"${f[k] ? ' checked' : ''}>`;
     else if (kind === 'num') inp = `<input type="number" step="any" name="${k}" value="${esc(f[k])}">`;
