@@ -77,6 +77,8 @@ button.orient{padding:1px 3px}
 .groups select{max-width:220px}
 .groups select[data-ct]{width:68px}
 .groups input[data-cr]{width:62px}
+.groups select[data-ch]{width:72px}
+.groups select[data-ch].edited{border-color:var(--accent);color:var(--accent);font-weight:600}
 .groups select[data-cf]{max-width:200px}
 .groups .refs{max-width:160px}
 .groups input[data-cr].edited{border-color:var(--accent);color:var(--accent);font-weight:600}
@@ -92,11 +94,17 @@ pre.out{max-height:300px;overflow:auto;background:var(--input);border:1px solid 
 .tray-map button.cfg{background:var(--accent-weak);color:var(--accent);border-color:var(--accent)}
 .tray-map .p84{grid-column:8;grid-row:1 / span 2}
 svg.preview{width:100%;height:320px;background:var(--input);border:1px solid var(--border);border-radius:6px}
-dialog{border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);padding:0;width:min(560px,calc(100vw - 32px))}
+dialog{border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);padding:0;width:min(720px,calc(100vw - 32px))}
 dialog::backdrop{background:rgba(0,0,0,.4)}
 dialog form{padding:14px}
 dialog h3{margin:0 0 10px}
+/* Labels wrap in the flexible column; the controls always get a fixed-width column. */
+dialog .grid2{grid-template-columns:minmax(0,1fr) 240px;gap:6px 14px}
 dialog .grid2 input:not([type=checkbox]),dialog .grid2 select{width:100%}
+.tplbar{display:flex;gap:8px;align-items:center;margin:0 0 12px;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--accent-weak)}
+.tplbar select{flex:1;min-width:0}
+dialog .grid2 input[type=checkbox]{justify-self:start;width:18px;height:18px}
+@media (max-width:520px){dialog .grid2{grid-template-columns:minmax(0,1fr) 140px}}
 dialog .foot{display:flex;gap:8px;margin-top:12px}
 dialog .foot .sp{flex:1}
 #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 14px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw}
@@ -198,14 +206,32 @@ dialog .foot .sp{flex:1}
       <div class="scroll"><table class="feeders" id="fRight"></table></div>
     </div>
   </section>
+  <section class="card" id="libCard">
+    <h2>База компонентів <span class="small muted" id="libCount" style="text-transform:none;letter-spacing:0"></span><span class="sp"></span>
+      <button type="button" id="libAdd">+ Додати</button>
+      <button type="button" id="libDefaults" title="Додати стандартні шаблони, яких ще немає в базі (наявні не змінюються)">+ Стандартні</button>
+      <button type="button" id="libExport" title="Зберегти базу в CSV">⬇ CSV</button>
+      <button type="button" id="libImport" title="Завантажити базу з CSV (замінює поточну)">⬆ CSV</button>
+      <input type="file" id="fLib" accept=".csv,text/csv" class="hidden">
+    </h2>
+    <p class="small muted" style="margin:-4px 0 8px">Стандартні параметри корпусів (стрічка, висота, сопло, розпізнавання). У налаштуваннях фідера (⚙) шаблон підбирається за футпрінтом і застосовується однією кнопкою.</p>
+    <div class="row small" style="margin-bottom:8px">
+      <span class="muted">На машині встановлено:</span>
+      <label>голова 1 <select data-head="1"></select></label>
+      <label>голова 2 <select data-head="2"></select></label>
+      <span class="muted">— рекомендоване сопло шаблону перетворюється на номер голови</span>
+    </div>
+    <div class="scroll" style="max-height:420px"><table class="groups" id="libTable"></table></div>
+  </section>
 </main>
 
 <dialog id="dlg"><form method="dialog" id="dlgForm"></form></dialog>
+<dialog id="libDlg"><form method="dialog" id="libForm"></form></dialog>
 <div id="toast"></div>
 
 <script>
 'use strict';
-const LS = { feeders:'chm48.feeders.v1', project:'chm48.project.v1', csv:'chm48.csv.v1', theme:'chm48.theme' };
+const LS = { lib:'chm48.library.v1', feeders:'chm48.feeders.v1', project:'chm48.project.v1', csv:'chm48.csv.v1', theme:'chm48.theme' };
 const range = (a,b) => Array.from({length:b-a+1}, (_,i)=>a+i);
 const LEFT = range(1,29), RIGHT = range(36,64), TRAY = range(71,84);
 const ALL_IDS = [...LEFT, ...RIGHT, ...TRAY];
@@ -245,7 +271,7 @@ const FIELDS = { id:'int', tape:'int', type:'str', value:'str', footprint:'str',
   deltX:'num', deltY:'num', speed:'int', skip:'bool', vacuum:'bool', vision:'bool', pauseEmpty:'bool', polar:'bool',
   delayTake:'int', pullSpeed:'int', threshold:'int', visualRatio:'int', pixX:'int', pixY:'int', heightTake:'num', placeDelay:'int' };
 const DEF_PROJECT = { name:'', side:'top', offX:0, offY:0, mirrorX:false, boardW:100, invertY:false, rotOff:0, exclude:'',
-  nx:1, ny:1, ix:0, iy:0, skipBoards:'', calib:'auto', calPts:[{n:'UL',x:0,y:0},{n:'LR',x:0,y:0},{n:'LL',x:0,y:0}], onlyUsed:'1', cFeeder:{}, cType:{}, cRot:{}, onlyMissing:false };
+  nx:1, ny:1, ix:0, iy:0, skipBoards:'', calib:'auto', calPts:[{n:'UL',x:0,y:0},{n:'LR',x:0,y:0},{n:'LL',x:0,y:0}], onlyUsed:'1', cFeeder:{}, cType:{}, cRot:{}, cHead:{}, onlyMissing:false };
 
 function coerce(kind, v){
   if (kind === 'bool') return v === true || v === 1 || /^(1|true|yes|так|x)$/i.test(String(v).trim());
@@ -268,7 +294,7 @@ const state = { feeders:{}, project:{}, csv:null, parsed:null };
   const sf = load(LS.feeders, {}) || {};
   for (const id of ALL_IDS) state.feeders[id] = migrateOrient(Object.assign(defFeeder(id), sf[id] || {}, { id }));
   state.project = Object.assign({}, DEF_PROJECT, load(LS.project, {}) || {});
-  for (const k of ['cFeeder', 'cType', 'cRot']) state.project[k] = state.project[k] || {};
+  for (const k of ['cFeeder', 'cType', 'cRot', 'cHead']) state.project[k] = state.project[k] || {};
   for (const k of ['overrides', 'typeOverrides', 'rotSet', 'rotOverrides']) delete state.project[k]; // old per-group settings
   const cp = state.project.calPts;
   state.project.calPts = (Array.isArray(cp) && cp.length === 3 ? cp : DEF_PROJECT.calPts).map(c => ({...c}));
@@ -285,7 +311,9 @@ const fmt = n => { const r = Math.round((+n || 0) * 100) / 100; return Object.is
 // Function declaration (hoisted): also used by init() when migrating old saves.
 function normAngle(a){ a = ((a % 360) + 360) % 360; if (a > 180) a -= 360; return Math.round(a * 100) / 100; }
 const statusOf = f => (f.skip?1:0) | (f.vacuum?2:0) | (f.vision?4:0) | (f.pauseEmpty?8:0);
-const noteOf = f => clean(f.note.trim() || [...new Set([f.value, f.footprint].map(s => s.trim()).filter(Boolean))].join(' '));
+// A feeder footprint may be a template pattern ("R_0805|R0805", "SM#B-GHS"): show its first alternative, # → x.
+const fpLabel = fp => /[|*#]/.test(fp) ? fp.split('|')[0].replace(/\*/g, '').replace(/#/g, 'x').trim() : fp;
+const noteOf = f => clean(f.note.trim() || [...new Set([f.value, fpLabel(f.footprint)].map(s => s.trim()).filter(Boolean))].join(' '));
 
 // ---------- CSV parsing ----------
 function detectDelim(text){
@@ -360,7 +388,8 @@ function normVal(s){
   const n = parseFloat(m[3] ? m[1] + '.' + m[3] : m[1]) * (SI[k] ?? 1);
   return +n.toPrecision(6) + (m[4] || '');
 }
-const fpTokens = s => norm(s).replace(/^[^:]*:/, '').split(/[^a-z0-9]+/).filter(Boolean);
+// Dots stay inside tokens so dimensions like "3.9x4.9mm" don't turn into bare-number (pin-count) tokens.
+const fpTokens = s => norm(s).replace(/^[^:]*:/, '').split(/[^a-z0-9.]+/).map(t => t.replace(/^\.+|\.+$/g, '')).filter(Boolean);
 // 3 = same footprint; 2 = one is a contiguous token run of the other ("R_0402" ⊂ "R_0402_1005Metric"),
 // unless the extra tokens are bare numbers — those are usually pin counts ("SOT-23" vs "SOT-23-5").
 function fpScore(ffp, pkg){
@@ -394,7 +423,7 @@ function autoMatch(type, val, pkg){
   let best = null, bs = 0, near = null, nearFp = 0;
   for (const id of ALL_IDS) {
     const f = state.feeders[id]; if (!isCfg(f)) continue;
-    const fs = fpScore(feederFp(f), pkg); if (!fs) continue;
+    const fs = tplFpScore(feederFp(f), pkg); if (!fs) continue;
     const vs = valScore(f.value, val), tk = typeOk(f.type, type);
     if (vs >= 0 && tk) { const sc = fs * 10 + vs; if (sc > bs) { bs = sc; best = id; } }
     else if (fs > nearFp || (fs === nearFp && !near)) { nearFp = fs; near = { f, vs, tk }; }
@@ -446,7 +475,7 @@ function compute(){
     if (P.mirrorX) x = P.boardW - x;
     if (P.invertY) y = -y;
     x += +P.offX || 0; y += +P.offY || 0;
-    const r = { c, ref:c.ref, type, typeGuess, val:c.val, pkg:c.pkg, x, y, rotSet:P.cRot[c.ref],
+    const r = { c, ref:c.ref, type, typeGuess, val:c.val, pkg:c.pkg, x, y, rotSet:P.cRot[c.ref], headSet:P.cHead[c.ref],
       auto:am.id, why:am.why, manual: ov !== undefined, station: ov !== undefined ? ov : am.id };
     if (r.station && !isCfg(state.feeders[r.station])) r.station = null;
     r.f = r.station ? state.feeders[r.station] : null;
@@ -499,6 +528,8 @@ function fileBase(){
   const n = state.project.name.trim() || (state.csv ? state.csv.name.replace(/\.[^.]+$/, '') : 'project');
   return clean(n).replace(/[\\/:*?<>|]/g, '_') || 'project';
 }
+// Nozzle (PHead) per component: explicit choice in the components table, else the feeder's nozzle.
+const headOf = r => (r.headSet ?? r.f?.nozzle) === 2 ? 2 : 1;
 function buildDpv(res){
   const P = state.project, L = [], now = new Date(), p2 = n => String(n).padStart(2, '0'), base = fileBase();
   L.push('separated', `FILE,${base}.dpv`, `PCBFILE,${state.csv ? clean(state.csv.name) : base + '.dpv'}`,
@@ -514,11 +545,11 @@ function buildDpv(res){
   // EComponent.Skip has its own bits: 1 = skip, 2 = use vision. The machine saves Station Status 6 (vacuum+vision)
   // as 2 here, and with 0 it places without the camera even when the station has vision on.
   const compFlags = f => (f.skip ? 1 : 0) | (f.vision ? 2 : 0);
-  const ecomp = res.placed.map(p => ({ p, x:p.x, y:p.y, angle:p.angle, ref:p.ref, skip:compFlags(p.f) }));
-  if (res.calSkip) { const p = res.placed[0], q = res.calSkip; ecomp.push({ p, x:q.x, y:q.y, angle:p.angle, ref:q.ref, skip:compFlags(p.f) | 1 }); }
-  ecomp.forEach(({ p, x, y, angle, ref, skip }, i) => {
+  const ecomp = res.placed.map(p => ({ p, x:p.x, y:p.y, angle:p.angle, ref:p.ref, skip:compFlags(p.f), head:headOf(p) }));
+  if (res.calSkip) { const p = res.placed[0], q = res.calSkip; ecomp.push({ p, x:q.x, y:q.y, angle:p.angle, ref:q.ref, skip:compFlags(p.f) | 1, head:headOf(p) }); }
+  ecomp.forEach(({ p, x, y, angle, ref, skip, head }, i) => {
     const f = p.f, ph = f.placeHeight === '' ? f.height : f.placeHeight;
-    L.push(`EComponent,${i},${i+1},${f.nozzle === 2 ? 2 : 1},${f.id},${fmt(x)},${fmt(y)},${fmt(angle)},${fmt(ph)},${skip},${f.speed|0},${clean(ref)},${noteOf(f)},${f.placeDelay|0}`, '');
+    L.push(`EComponent,${i},${i+1},${head},${f.id},${fmt(x)},${fmt(y)},${fmt(angle)},${fmt(ph)},${skip},${f.speed|0},${clean(ref)},${noteOf(f)},${f.placeDelay|0}`, '');
   });
   L.push('', '', 'Table,No.,ID,CenterX,CenterY,IntervalX,IntervalY,NumX,NumY,Start', '', '', '');
   L.push('Table,No.,nType,nAlg,nFinished', '', 'PcbCalib,0,0,0,0', '');
@@ -607,6 +638,7 @@ let lastRes = null;
 function refresh(){
   const res = lastRes = compute();
   // components table
+  renderLib(); // "used by feeders" column follows feeder edits
   if (!state.parsed || !state.parsed.comps.length) {
     $('#groups').innerHTML = '<tr><td class="muted">Завантажте CSV з координатами компонентів</td></tr>';
   } else {
@@ -615,12 +647,16 @@ function refresh(){
     const typeSel = r => `<select data-ct="${esc(r.ref)}" title="Тип визначено за позначенням: ${esc(r.typeGuess || '?')}">${TYPES.map(t => `<option value="${t}"${t === r.type ? ' selected' : ''}>${t || '—'}</option>`).join('')}</select>`;
     const rotIn = r => { const set = r.rotSet !== undefined;
       return `<input type="number" step="90" data-cr="${esc(r.ref)}" value="${fmt(set ? r.rotSet : r.c.rot)}" class="${set ? 'edited' : ''}" title="${esc(set ? `Змінено; у CSV ${fmt(r.c.rot)}. Очистіть поле, щоб повернути` : 'З CSV')}">`; };
-    $('#groups').innerHTML = '<thead><tr><th>Позн.</th><th>Тип</th><th>Номінал</th><th>Футпрінт</th><th>X</th><th>Y</th><th title="Кут у .dpv (з CSV; можна змінити, порожньо = як у CSV). Стрілка — як компонент ляже на плату">Rotation</th><th>Фідер</th></tr></thead><tbody>' +
+    const headSel = r => { const auto = r.f ? `авто (${r.f.nozzle === 2 ? 2 : 1})` : 'авто';
+      return `<select data-ch="${esc(r.ref)}" class="${r.headSet !== undefined ? 'edited' : ''}" title="Сопло (PHead)">` +
+        [['', auto], ['1', '1'], ['2', '2']].map(([v, l]) => `<option value="${v}"${String(r.headSet ?? '') === v ? ' selected' : ''}>${l}</option>`).join('') + '</select>'; };
+    $('#groups').innerHTML = '<thead><tr><th>Позн.</th><th>Тип</th><th>Номінал</th><th>Футпрінт</th><th>X</th><th>Y</th><th title="Кут у .dpv (з CSV; можна змінити, порожньо = як у CSV). Стрілка — як компонент ляже на плату">Rotation</th><th title="Сопло (PHead): авто = як у фідері">Голова</th><th>Фідер</th></tr></thead><tbody>' +
       rows.map(r => `<tr class="${r.excluded ? 'dnp' : r.f ? '' : 'miss'}" data-hl="${r.f ? r.f.id : ''}">
         <td><b>${esc(r.ref)}</b></td><td>${typeSel(r)}</td>
         <td class="refs" title="${esc(r.val)}">${esc(r.val)}</td><td class="refs" title="${esc(r.pkg)}">${esc(r.pkg)}</td>
         <td>${fmt(r.x)}</td><td>${fmt(r.y)}</td>
         <td style="white-space:nowrap" title="${esc(rotTitle(r))}">${rotIn(r)} ${!r.excluded ? arrowSvg(resultDir(r), isPolarRow(r) ? 'polar' : '') : ''}</td>
+        <td>${headSel(r)}</td>
         <td>${stationSelect(r, common)}</td></tr>`).join('') + '</tbody>';
   }
   $('#compCount').textContent = res.rows.length ? `${res.rows.length} шт.` : '';
@@ -716,6 +752,9 @@ document.addEventListener('change', e => {
     const v = t.value.trim() === '' ? null : normAngle(num(t.value) || 0);
     if (v === null || fmt(v) === fmt(r.c.rot)) delete state.project.cRot[ref]; else state.project.cRot[ref] = v;
     saveProject(); refresh();
+  } else if (t.dataset.ch !== undefined) {
+    if (t.value === '') delete state.project.cHead[t.dataset.ch]; else state.project.cHead[t.dataset.ch] = +t.value;
+    saveProject(); refresh();
   } else if (t.dataset.ct !== undefined) {
     const r = lastRes.rows.find(r => r.ref === t.dataset.ct);
     if (t.value === r.typeGuess) delete state.project.cType[r.ref]; else state.project.cType[r.ref] = t.value;
@@ -729,6 +768,8 @@ document.addEventListener('change', e => {
         // Filling a free feeder: every component with the same type/value/footprint then matches it automatically.
         const r = lastRes.rows.find(r => r.ref === ref);
         f.value = r.val; f.footprint = r.pkg; f.type = r.type || 'Other';
+        const tpl = matchTpl(f.type, r.pkg);
+        if (tpl) applyTplToFeeder(tpl, f);
         saveFeeders(); refreshRow(id); toast(`Фідер #${id}: ${noteOf(f)}`);
         delete state.project.cFeeder[ref];
         if (autoMatch(r.type, r.val, r.pkg).id !== id) state.project.cFeeder[ref] = id;
@@ -757,7 +798,9 @@ document.addEventListener('mouseover', e => {
 });
 function guessType(ref){
   const p = ref.toUpperCase().replace(/[^A-Z].*$/, '');
-  return ({R:'R',RN:'R',C:'C',L:'L',FB:'L',D:'D',LED:'LED',Q:'Q',U:'IC',IC:'IC',Y:'Crystal',X:'Crystal',J:'Conn',P:'Conn',CN:'Conn',SW:'Btn',S:'Btn',F:'Fuse'})[p] || '';
+  return ({R:'R',RN:'R',C:'C',L:'L',FB:'L',D:'D',VD:'D',ZD:'D',TVS:'D',LED:'LED',HL:'LED',Q:'Q',VT:'Q',
+    U:'IC',IC:'IC',DA:'IC',DD:'IC',OK:'IC',OC:'IC',ISO:'IC',Y:'Crystal',X:'Crystal',ZQ:'Crystal',
+    J:'Conn',P:'Conn',CN:'Conn',XS:'Conn',XP:'Conn',XT:'Conn',SW:'Btn',S:'Btn',SB:'Btn',F:'Fuse',FU:'Fuse'})[p] || '';
 }
 
 // CSV coords
@@ -792,7 +835,8 @@ window.addEventListener('drop', e => {
   if (/\.dpv$/i.test(file.name)) return feedInput('#fDpv', file);
   file.slice(0, 2000).text().then(head => {
     const first = head.replace(/^\uFEFF/, '').split(/\r?\n/)[0].split(/[,;\t]/).map(c => c.trim().replace(/"/g, ''));
-    if (first[0] === 'id' && first.includes('footprint')) feedInput('#fRestore', file); else loadCsvFile(file);
+    if (first[0] === 'heads' || (first.includes('name') && first.includes('nozzleType'))) feedInput('#fLib', file);
+    else if (first[0] === 'id' && first.includes('footprint')) feedInput('#fRestore', file); else loadCsvFile(file);
   });
 });
 function feedInput(sel, file){
@@ -875,7 +919,7 @@ $('#btnTheme').onclick = () => {
 
 // Feeder dialog
 const DLG = [
-  ['type','Тип компонента','type'], ['value','Номінал'], ['footprint','Футпрінт'],
+  ['type','Тип компонента','type'], ['value','Номінал'], ['footprint','Футпрінт (можна з шаблону: варіанти через |, * = будь-що, # = число)'],
   ['note','Note (порожньо = номінал + футпрінт)'],
   ['tape','Ширина стрічки, мм','tape'], ['feedRate','Крок подачі FeedRates, мм','pitch'],
   ['height','Висота компонента, мм (забір)','num'], ['placeHeight','Висота при встановленні, мм (порожньо = як вище)','num'],
@@ -904,12 +948,46 @@ function openDialog(id){
     return `<label for="">${esc(label)}</label>${inp}`;
   };
   $('#dlgForm').innerHTML = `<h3>Станція #${id} <span class="muted small">${tray ? 'передній лоток' : (id < 36 ? 'ліва сторона' : 'права сторона')}</span></h3>
+    <div class="tplbar"><span class="small">Шаблон з бази</span><select id="tplSel">${tplOptions(f)}</select><button type="button" id="tplApply">Застосувати</button></div>
     <div class="grid2">${DLG.map(field).join('')}</div>
-    <div class="foot"><button type="button" id="dlgClear">Очистити</button><span class="sp"></span>
+    <div class="foot"><button type="button" id="dlgClear">Очистити</button><button type="button" id="tplSave" title="Створити шаблон у базі з поточних значень">Зберегти як шаблон</button><button type="button" id="dlgRatio" title="Розмір береться з вибраного шаблону, інакше з nPixSize (≈20 пікс/мм)">nVisualRadio ≈ з розміру</button><span class="sp"></span>
       <button value="cancel" formnovalidate>Скасувати</button><button value="ok" class="primary">Зберегти</button></div>`;
   $('#dlgClear').onclick = () => {
     if (!confirm(`Очистити станцію #${id}?`)) return;
     state.feeders[id] = defFeeder(id); saveFeeders(); refreshRow(id); refresh(); $('#dlg').close('x');
+  };
+  // Re-suggest the template while footprint/type are edited in the dialog (unless one was picked by hand).
+  let tplPicked = false;
+  $('#tplSel').onchange = () => { tplPicked = true; };
+  const resuggest = () => {
+    if (tplPicked) return;
+    const fd = $('#dlgForm');
+    $('#tplSel').innerHTML = tplOptions({ type: fd.elements.type.value, footprint: fd.elements.footprint.value });
+  };
+  $('#dlgForm').elements.footprint.addEventListener('input', resuggest);
+  $('#dlgForm').elements.type.addEventListener('change', resuggest);
+  $('#tplApply').onclick = () => {
+    const t = LIB.items.find(t => t.id === $('#tplSel').value);
+    if (!t) return;
+    applyTplToForm(t, $('#dlgForm'), tray);
+    toast(`Застосовано «${t.name}» — перевірте і натисніть «Зберегти»`);
+  };
+  $('#dlgRatio').onclick = () => {
+    const fd = $('#dlgForm'), t = LIB.items.find(t => t.id === $('#tplSel').value);
+    let size = t ? Math.max(+t.sizeX || 0, +t.sizeY || 0) : 0, from = t ? `шаблону «${t.name}»` : '';
+    if (!size) { size = Math.max(num(fd.elements.pixX.value) || 0, num(fd.elements.pixY.value) || 0) / 20; from = 'nPixSize'; }
+    const r = visualRatioFor(size);
+    if (!r) { toast('Немає розміру: виберіть шаблон з розміром або заповніть nPixSizeX/Y'); return; }
+    fd.elements.visualRatio.value = r.ratio; toast(`nVisualRadio з ${from}: ${r.text}`);
+  };
+  $('#tplSave').onclick = () => {
+    const fd = $('#dlgForm'), v = k => fd.elements[k];
+    const t = newTpl({ name: (v('footprint')?.value || v('value')?.value || `Станція ${id}`).trim() });
+    for (const k of TPL_COPY) { const el = v(k); if (!el) continue; t[k] = TPL_FIELDS[k] === 'bool' ? el.checked : coerce(TPL_FIELDS[k], el.value); }
+    t.type = v('type').value; t.footprint = v('footprint').value.trim();
+    LIB.items.push(t); saveLib(); renderLib();
+    // Template dialog opens on top of the feeder dialog; afterwards just refresh the template list here.
+    openTplDialog(t.id, () => { $('#tplSel').innerHTML = tplOptions(f); $('#tplSel').value = t.id; });
   };
   const dlg = $('#dlg');
   dlg.onclose = () => {
@@ -924,6 +1002,299 @@ function openDialog(id){
   dlg.returnValue = '';
   dlg.showModal();
 }
+
+// nVisualRadio estimate: the search box must hold the part plus its possible shift on the nozzle.
+//   ratio = (size + 2·shift + margin) / size · 100, size = larger body side in mm.
+// Shift/margin grow with the part (pocket clearance); result rounded to 5 % and kept within 110–250 %.
+function visualRatioFor(sizeMm){
+  const s = +sizeMm || 0; if (s <= 0) return null;
+  const shift = s < 3 ? 0.3 : s < 6 ? 0.4 : 0.5, margin = s < 3 ? 0.2 : s < 6 ? 0.3 : 0.5;
+  const ratio = Math.min(250, Math.max(110, Math.round((s + 2 * shift + margin) / s * 100 / 5) * 5));
+  return { ratio, text: `(${fmt(s)} + 2×${fmt(shift)} + ${fmt(margin)}) / ${fmt(s)} → ${ratio}%` };
+}
+
+// ---------- component library (package templates) ----------
+const NOZZLES = ['', '502', '503', '504', '505', '506'];
+const NOZZLE_HINT = { 502:'Ø0.7 — 0402', 503:'Ø1.0 — 0603', 504:'Ø1.5 — 0805/1206/SOT-23', 505:'Ø3.5 — SOP/SSOP', 506:'Ø5.0 — QFN/TQFP' };
+// Template keys → kind. TPL_COPY are the ones transferred to a feeder.
+const TPL_FIELDS = { name:'str', type:'str', footprint:'str', sizeX:'num', sizeY:'num', nozzleType:'str', nozzle:'int',
+  tape:'int', feedRate:'num', orient:'num', height:'num', placeHeight:'optnum', speed:'int', pullSpeed:'int',
+  delayTake:'int', placeDelay:'int', threshold:'int', visualRatio:'int', pixX:'int', pixY:'int', heightTake:'num',
+  vision:'bool', vacuum:'bool', polar:'bool', comment:'str' };
+const TPL_COPY = ['tape','feedRate','orient','height','placeHeight','nozzle','speed','pullSpeed','delayTake','placeDelay',
+  'threshold','visualRatio','pixX','pixY','heightTake','vision','vacuum','polar'];
+const newTpl = (o = {}) => Object.assign({ id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+  name:'', type:'', footprint:'', sizeX:0, sizeY:0, nozzleType:'', nozzle:1, tape:8, feedRate:4, orient:0, height:0.5,
+  placeHeight:'', speed:0, pullSpeed:0, delayTake:0, placeDelay:0, threshold:0, visualRatio:0, pixX:0, pixY:0, heightTake:0,
+  vision:true, vacuum:false, polar:false, comment:'' }, o);
+// Starting set: typical body sizes/heights and the HDS nozzle recommendations; vision params 0 = machine defaults.
+// Footprint field: alternatives separated by "|", "*" = anything (matches KiCad and EasyEDA/LCSC names).
+// Bump LIB_DEFAULTS_VERSION when adding entries: missing ones are merged into saved libraries by name.
+const LIB_DEFAULTS_VERSION = 3;
+const CHECK_TAPE = 'Стрічка/крок типові — звірте з котушкою';
+const DEFAULT_LIB = () => [
+  // name, type, footprint patterns, sizeX, sizeY, nozzle, tape, pitch, height, comment
+  // — resistors
+  ['R 0402','R','R_0402|R0402',1.0,0.5,'502',8,2,0.35], ['R 0603','R','R_0603|R0603',1.6,0.8,'503',8,4,0.45],
+  ['R 0805','R','R_0805|R0805',2.0,1.25,'504',8,4,0.5], ['R 1206','R','R_1206|R1206',3.2,1.6,'504',8,4,0.55],
+  ['R 1210','R','R_1210|R1210',3.2,2.5,'504',8,4,0.55], ['R 2010','R','R_2010|R2010',5.0,2.5,'505',12,4,0.6],
+  ['R 2512','R','R_2512|R2512',6.4,3.2,'505',12,8,0.6],
+  // — capacitors
+  ['C 0402','C','C_0402|C0402',1.0,0.5,'502',8,2,0.5], ['C 0603','C','C_0603|C0603',1.6,0.8,'503',8,4,0.8],
+  ['C 0805','C','C_0805|C0805',2.0,1.25,'504',8,4,1.25], ['C 1206','C','C_1206|C1206',3.2,1.6,'504',8,4,1.6],
+  ['C 1210','C','C_1210|C1210',3.2,2.5,'504',8,4,2.5],
+  ['Тантал A (3216)','C','CP_Tantalum_Case-A|CASE-A*3216|Tantalum*3216',3.2,1.6,'504',8,4,1.6],
+  ['Тантал B (3528)','C','CP_Tantalum_Case-B|CASE-B*3528|Tantalum*3528',3.5,2.8,'505',8,4,1.9],
+  // — inductors / fuses
+  ['L 0603','L','L_0603|L0603',1.6,0.8,'503',8,4,0.8], ['L 0805','L','L_0805|L0805',2.0,1.25,'504',8,4,1.0],
+  ['L 1206','L','L_1206|L1206',3.2,1.6,'504',8,4,1.2],
+  ['Fuse 0603','Fuse','Fuse_0603|F0603',1.6,0.8,'503',8,4,0.8], ['Fuse 1206','Fuse','Fuse_1206|F1206|PTC*1206',3.2,1.6,'504',8,4,0.9],
+  ['Fuse 1812','Fuse','Fuse_1812|F1812|PTC*1812',4.5,3.2,'505',12,8,1.0],
+  // — LEDs
+  ['LED 0603','LED','LED_0603|LED0603*',1.6,0.8,'503',8,4,0.8], ['LED 0805','LED','LED_0805|LED0805*',2.0,1.25,'504',8,4,0.8],
+  ['LED 1206','LED','LED_1206|LED1206*',3.2,1.6,'504',8,4,1.1], ['LED PLCC-2 3528','LED','LED_PLCC_2835|LED*3528|LED*PLCC-2',3.5,2.8,'505',8,4,1.9],
+  ['LED 5050 (WS2812B)','LED','LED_WS2812B*5.0x5.0|WS2812B|LED*L5.0-W5.0',5.0,5.0,'506',12,8,1.6],
+  ['LED 2020 (WS2812-2020)','LED','WS2812*2020|LED*L2.0-W2.0',2.0,2.0,'504',8,4,0.85],
+  ['LED 3535','LED','LED*3535|LED*L3.5-W3.5',3.5,3.5,'505',12,8,2.0,CHECK_TAPE],
+  // — diodes
+  ['SOD-123','D','D_SOD-123|SOD-123',2.7,1.6,'504',8,4,1.1], ['SOD-323','D','D_SOD-323|SOD-323',1.7,1.25,'503',8,4,0.9],
+  ['SOD-523','D','D_SOD-523|SOD-523',1.2,0.8,'503',8,4,0.6], ['SMA (DO-214AC)','D','D_SMA|SMA_L*|DO-214AC',4.3,2.6,'505',12,4,2.3],
+  ['SMB (DO-214AA)','D','D_SMB|SMB_L*|DO-214AA',4.3,3.6,'505',12,8,2.3], ['SMC (DO-214AB)','D','D_SMC|SMC_L*|DO-214AB',6.9,5.9,'506',16,8,2.3],
+  ['MiniMELF','D','D_MiniMELF|MiniMELF|SOD-80|LL-34',3.5,1.5,'504',8,4,1.5],
+  // — more diode packages (rectifier / Schottky / Zener / TVS / switching)
+  ['SOD-123F (Шотткі 1N5819W, B5819W)','D','D_SOD-123F|SOD-123F|SOD-123FL',2.7,1.6,'504',8,4,1.0],
+  ['SOD-128 (Шотткі PMEG)','D','D_SOD-128|SOD-128',3.8,2.5,'504',8,4,1.0],
+  ['SMAF / SMA-F (Шотткі, випрямні плоскі)','D','SMAF|D_SMAF|SMA-F|DO-221AC',3.5,2.8,'505',12,4,1.1,CHECK_TAPE],
+  ['SMF / DO-219AB (TVS, Шотткі)','D','D_SMF|SMF_L*|DO-219AB',2.8,1.8,'504',8,4,1.0],
+  ['PowerDI-123 (Шотткі DFLS, DFLR)','D','PowerDI-123|D_PowerDI-123',2.8,1.8,'504',8,4,1.0],
+  ['TO-277A / SMPC (Шотткі потужні)','D','TO-277|SMPC|D_TO-277A',6.5,4.7,'505',12,8,1.1],
+  ['SOD-882 / DFN1006-2','D','D_SOD-882|SOD-882|DFN1006-2|DFN-2_L1.0-W0.6',1.0,0.6,'502',8,2,0.5],
+  ['SOT-23 діоди (BAT54, BAV99, BZX84)','D','SOT-23|SOT-23-3',2.9,1.3,'504',8,4,1.1],
+  ['SOT-323 діоди (BAT54W, BAV70W)','D','SOT-323|SC-70',2.0,1.25,'503',8,4,0.9],
+  // — optocouplers (gull-wing SMD DIP and SOP)
+  ['Оптопара SOP-4 2.54 (EL357, PC357)','IC','SOP-4_3.8x4.1mm_P2.54mm|SOP-4*P2.54|SOP-4*P254',3.8,4.1,'505',12,8,2.0,CHECK_TAPE],
+  ['Оптопара SOP-4 1.27 (TLP185, TLP291)','IC','SOP-4_4.4x2.6mm_P1.27mm|SOP-4*P1.27|SOP-4*P127',4.4,2.6,'505',12,8,2.1,CHECK_TAPE],
+  ['Оптопара SMD DIP-4 (PC817 S)','IC','SMDIP-4*|SMD-4_L*|DIP-4*SMD|PC817*SMD',4.6,6.5,'505',16,12,3.5,'Корпус з виводами ~10 мм. '+CHECK_TAPE],
+  ['Оптопара SMD DIP-6 (MOC3021S, MOC3063S)','IC','SMDIP-6*|SMD-6_L*|DIP-6*SMD',8.9,6.5,'506',16,12,3.5,'Корпус з виводами ~10 мм. '+CHECK_TAPE],
+  ['Оптопара SMD DIP-8 (6N137S, HCPL-2630S)','IC','SMDIP-8*|SMD-8_L*|DIP-8*SMD',9.6,6.5,'506',16,12,3.5,'SO-8 оптопари (HCPL-0601) — шаблон SOIC-8. '+CHECK_TAPE],
+  // — transistors / small packages
+  ['SOT-23','Q','SOT-23|SOT-23-3',2.9,1.3,'504',8,4,1.1], ['SOT-23-5','IC','SOT-23-5',2.9,1.6,'504',8,4,1.1],
+  ['SOT-23-6','IC','SOT-23-6',2.9,1.6,'504',8,4,1.1], ['SOT-323 (SC-70)','Q','SOT-323|SC-70',2.0,1.25,'503',8,4,0.9],
+  ['SOT-363 (SC-70-6)','IC','SOT-363|SC-70-6',2.0,1.25,'503',8,4,0.9], ['SOT-89','Q','SOT-89|SOT-89-3',4.5,2.5,'505',12,8,1.5],
+  ['SOT-223','Q','SOT-223|SOT-223-3',6.5,3.5,'505',12,8,1.7], ['TO-252 (DPAK)','Q','TO-252|DPAK',6.6,6.1,'506',16,8,2.3],
+  // — ICs
+  ['SOIC-8','IC','SOIC-8',4.9,3.9,'505',12,8,1.75], ['SOIC-14','IC','SOIC-14',8.65,3.9,'505',16,8,1.75],
+  ['SOIC-16','IC','SOIC-16',9.9,3.9,'505',16,8,1.75], ['MSOP-8','IC','MSOP-8',3.0,3.0,'505',12,8,1.1],
+  ['MSOP-10','IC','MSOP-10',3.0,3.0,'505',12,8,1.1], ['TSSOP-8','IC','TSSOP-8',3.0,4.4,'505',12,8,1.2],
+  ['TSSOP-14','IC','TSSOP-14',5.0,4.4,'505',12,8,1.2], ['TSSOP-16','IC','TSSOP-16',5.0,4.4,'505',12,8,1.2],
+  ['TSSOP-20','IC','TSSOP-20',6.5,4.4,'505',16,8,1.2],
+  ['DFN 2x2','IC','DFN-*2x2|DFN-*L2.0-W2.0',2.0,2.0,'504',8,4,0.75], ['QFN 3x3','IC','QFN-*3x3|QFN-*L3.0-W3.0',3.0,3.0,'505',12,8,0.9],
+  ['QFN 4x4','IC','QFN-*4x4|QFN-*L4.0-W4.0',4.0,4.0,'505',12,8,0.9], ['QFN 5x5','IC','QFN-*5x5|QFN-*L5.0-W5.0',5.0,5.0,'505',12,8,0.9],
+  ['QFN 6x6','IC','QFN-*6x6|QFN-*L6.0-W6.0',6.0,6.0,'506',16,12,0.9], ['QFN 7x7','IC','QFN-*7x7|QFN-*L7.0-W7.0',7.0,7.0,'506',16,12,0.9],
+  ['LQFP 7x7 (32/48)','IC','LQFP-*7x7|LQFP-*L7.0-W7.0',7.0,7.0,'506',16,12,1.6],
+  ['LQFP 10x10 (64)','IC','LQFP-*10x10|LQFP-*L10.0-W10.0',10.0,10.0,'506',24,16,1.6,'Часто постачається в трей'],
+  // — crystals / oscillators
+  ['Кварц 3225 (4 конт.)','Crystal','Crystal_SMD_3225*|CRYSTAL-SMD*L3.2-W2.5|OSC*3225',3.2,2.5,'504',8,4,0.8],
+  ['Кварц 2016 (4 конт.)','Crystal','Crystal_SMD_2016*|CRYSTAL-SMD*L2.0-W1.6',2.0,1.6,'504',8,4,0.6],
+  ['Кварц 5032','Crystal','Crystal_SMD_5032*|CRYSTAL-SMD*L5.0-W3.2',5.0,3.2,'505',12,8,1.1],
+  ['Кварц 32.768k 3215','Crystal','Crystal_SMD_3215*|FC-135|CRYSTAL-SMD*L3.2-W1.5',3.2,1.5,'504',8,4,0.9],
+  // — buttons
+  ['Кнопка 3x4 SMD','Btn','SW*3x4|TS-1088|SW-SMD*L3.9-W3.0',3.9,3.0,'505',12,4,2.5,CHECK_TAPE],
+  ['Кнопка 6x6 SMD','Btn','SW*6x6|TS-1187|SW-SMD*L6.0-W6.0|SW-SMD*L6.2-W6.2',6.0,6.0,'506',16,12,4.3,CHECK_TAPE],
+  // — connectors (pin count varies → patterns match the series)
+  ['JST SH 1.0 гориз. (SM-B-SRSS)','Conn','SM#B-SRSS|JST_SH_SM#B',0,4.25,'505',12,8,2.95,'Ширина залежить від к-сті контактів. '+CHECK_TAPE],
+  ['JST SH 1.0 верт. (BM-B-SRSS)','Conn','BM#B-SRSS|JST_SH_BM#B',0,4.25,'505',12,8,4.25,'Ширина залежить від к-сті контактів. '+CHECK_TAPE],
+  ['JST GH 1.25 гориз. (SM-B-GHS)','Conn','SM#B-GHS|JST_GH_SM#B',0,5.25,'505',16,8,4.5,'2–6 конт. — 16 мм, 7+ — 24 мм. '+CHECK_TAPE],
+  ['JST GH 1.25 верт. (BM-B-GHS)','Conn','BM#B-GHS|JST_GH_BM#B',0,4.4,'505',16,8,5.0,'Висота на межі (макс. 5 мм). '+CHECK_TAPE],
+  ['JST XH 2.54 SMD гориз. (S-B-XH-SM4)','Conn','S#B-XH-SM4|XH-*SMD*W',0,9.8,'506',24,12,6.1,'Вище 5 мм — може не пройти під головою. '+CHECK_TAPE],
+  ['JST XH 2.54 SMD верт. (B-B-XH-SM4)','Conn','B#B-XH-SM4|XH-*SMD*L',0,6.4,'506',24,12,7.0,'Вище 5 мм — може не пройти під головою. '+CHECK_TAPE],
+  ['MX 1.25 / PicoBlade гориз.','Conn','PicoBlade_53261*|MX1.25*W|1.25*SMD*W',0,5.5,'505',16,8,3.4,'Molex 53261 та аналоги MX1.25. '+CHECK_TAPE],
+  ['MX 1.25 / PicoBlade верт.','Conn','PicoBlade_53398*|MX1.25*L|1.25*SMD*L',0,3.5,'505',16,8,4.4,'Molex 53398 та аналоги MX1.25. '+CHECK_TAPE],
+  ['USB-C 16P (HRO TYPE-C-31-M-12)','Conn','TYPE-C-31-M-12|USB_C_Receptacle_HRO*|USB-C*16P',8.9,7.3,'505',16,8,3.3,CHECK_TAPE],
+  ['USB-C 6P (живлення)','Conn','USB-C*6P|USB_C_Receptacle*6P|TYPE-C-6PIN',8.9,7.3,'505',16,8,3.3,CHECK_TAPE],
+  ['Micro-USB B SMD','Conn','USB_Micro-B*|MICRO-USB*|MicroUSB*',7.5,5.0,'505',16,8,2.8,CHECK_TAPE],
+].map(([name, type, footprint, sizeX, sizeY, nozzleType, tape, feedRate, height, comment = '']) =>
+  newTpl({ name, type, footprint, sizeX, sizeY, nozzleType, tape, feedRate, height, comment,
+    polar: ['LED','D','Q','IC','Conn','Crystal'].includes(type) || /Тантал/.test(name), vision: true }));
+let libMerged = 0;
+const LIB = (() => {
+  const d = load(LS.lib, null);
+  const lib = { heads: { 1:'', 2:'' }, items: [], defaultsVersion: LIB_DEFAULTS_VERSION };
+  if (d && Array.isArray(d.items)) {
+    lib.heads = Object.assign(lib.heads, d.heads); lib.items = d.items.map(t => newTpl(t));
+    if ((d.defaultsVersion || 1) < LIB_DEFAULTS_VERSION) libMerged = mergeDefaults(lib);
+  } else lib.items = DEFAULT_LIB();
+  return lib;
+})();
+// Adds default templates whose name is not in the library yet; user templates are never touched.
+function mergeDefaults(lib){
+  const have = new Set(lib.items.map(t => norm(t.name)));
+  const add = DEFAULT_LIB().filter(t => !have.has(norm(t.name)));
+  lib.items.push(...add); lib.defaultsVersion = LIB_DEFAULTS_VERSION;
+  return add.length;
+}
+function saveLib(){ if (!store(LS.lib, LIB)) toast('Не вдалося зберегти базу у localStorage'); }
+// Head that carries the template's recommended nozzle, else the template's own head number.
+const headForTpl = t => t.nozzleType && LIB.heads[1] === t.nozzleType ? 1 : t.nozzleType && LIB.heads[2] === t.nozzleType ? 2 : (t.nozzle === 2 ? 2 : 1);
+// Template footprint: "A|B" alternatives; inside one "*" = any characters, "#" = a number (e.g. pin count).
+// Wildcard alternatives are compared without punctuation and library prefix.
+function tplFpScore(pattern, pkg){
+  let best = 0;
+  for (const alt of String(pattern || '').split('|').map(a => a.trim()).filter(Boolean)) {
+    if (/[*#]/.test(alt)) {
+      const body = alt.toLowerCase().replace(/^[^:]*:/, '').split('*').map(seg => seg.replace(/[^a-z0-9#]/g, '').replace(/#/g, '\\d+')).filter(Boolean);
+      if (body.length && new RegExp(body.join('.*')).test(normFp(pkg))) best = Math.max(best, 2);
+    } else best = Math.max(best, fpScore(alt, pkg));
+  }
+  return best;
+}
+// Best template for a feeder/component: footprint must match; a template type, if set, must agree.
+function matchTpl(type, pkg){
+  let best = null, bs = 0;
+  for (const t of LIB.items) {
+    const fs = norm(t.footprint) && norm(t.footprint) === norm(pkg) ? 3 : tplFpScore(t.footprint, pkg); if (!fs) continue;
+    if (t.type && type && t.type !== type) continue;
+    const sc = fs * 2 + (t.type && t.type === type ? 1 : 0);
+    if (sc > bs) { bs = sc; best = t; }
+  }
+  return best;
+}
+function tplOptions(f){
+  const m = matchTpl(f.type, f.footprint);
+  return '<option value="">— вибрати —</option>' + LIB.items.map(t =>
+    `<option value="${t.id}"${m && m.id === t.id ? ' selected' : ''}>${esc(t.name)}${m && m.id === t.id ? ' ★ підходить' : ''}</option>`).join('');
+}
+function applyTplToFeeder(t, f){
+  for (const k of TPL_COPY) {
+    if (f.id >= 71 && (k === 'tape' || k === 'feedRate' || k === 'pullSpeed')) continue;
+    f[k] = k === 'nozzle' ? headForTpl(t) : t[k];
+  }
+  if (t.type) f.type = t.type;
+  if (t.footprint.trim()) f.footprint = t.footprint.trim();
+}
+function applyTplToForm(t, form, tray){
+  for (const k of [...TPL_COPY, 'type', 'footprint']) {
+    const el = form.elements[k]; if (!el) continue;
+    if (tray && (k === 'tape' || k === 'feedRate' || k === 'pullSpeed')) continue;
+    if ((k === 'type' || k === 'footprint') && !String(t[k]).trim()) continue;
+    const v = k === 'nozzle' ? headForTpl(t) : t[k];
+    if (el.type === 'checkbox') el.checked = !!v;
+    else if (k === 'feedRate') { el.innerHTML = pitchOptions(v); el.value = String(v); }
+    else el.value = v ?? '';
+  }
+}
+function renderLib(){
+  for (const h of [1, 2]) {
+    const el = document.querySelector(`[data-head="${h}"]`);
+    el.innerHTML = NOZZLES.map(n => `<option value="${n}"${LIB.heads[h] === n ? ' selected' : ''}>${n || '—'}</option>`).join('');
+  }
+  $('#libCount').textContent = `${LIB.items.length} шт.`;
+  const used = id => ALL_IDS.filter(fid => { const f = state.feeders[fid]; return isCfg(f) && matchTpl(f.type, f.footprint)?.id === id; });
+  $('#libTable').innerHTML = '<thead><tr><th>Назва</th><th>Тип</th><th>Футпрінт</th><th>Розмір, мм</th><th>Сопло</th><th>Стрічка / крок</th><th>H, мм</th><th>Камера</th><th>Pix X×Y</th><th>Фідери</th><th></th></tr></thead><tbody>' +
+    LIB.items.map(t => { const u = used(t.id); return `<tr>
+      <td><b>${esc(t.name)}</b>${t.comment ? `<div class="small muted">${esc(t.comment)}</div>` : ''}</td><td>${esc(t.type || '—')}</td><td>${esc(t.footprint)}</td>
+      <td>${t.sizeX || t.sizeY ? `${t.sizeX ? fmt(t.sizeX) : '?'} × ${t.sizeY ? fmt(t.sizeY) : '?'}` : '—'}</td>
+      <td>${t.nozzleType ? esc(t.nozzleType) + ' → гол. ' + headForTpl(t) : 'гол. ' + headForTpl(t)}</td>
+      <td>${t.tape} / ${fmt(t.feedRate)}</td><td>${fmt(t.height)}${t.placeHeight !== '' ? ' / ' + fmt(t.placeHeight) : ''}</td>
+      <td>${t.vision ? '✓' : '—'}</td><td>${t.pixX || t.pixY ? `${t.pixX}×${t.pixY}` : '—'}</td>
+      <td class="small">${u.length ? u.map(i => '#' + i).join(' ') + ` <button type="button" class="icon" data-tpl-push="${t.id}" title="Застосувати шаблон до цих фідерів">↻</button>` : '<span class="muted">—</span>'}</td>
+      <td style="white-space:nowrap"><button type="button" class="icon" data-tpl-edit="${t.id}" title="Редагувати">✎</button> <button type="button" class="icon" data-tpl-dup="${t.id}" title="Копія">⧉</button> <button type="button" class="icon" data-tpl-del="${t.id}" title="Видалити">✕</button></td></tr>`; }).join('') + '</tbody>';
+}
+const TPL_DLG = [
+  ['name','Назва'], ['type','Тип компонента','type'], ['footprint','Футпрінт для автопідбору: варіанти через |, * = будь-що, # = число (напр. R_0805|R0805, SM#B-GHS)'],
+  ['sizeX','Розмір X, мм (корпус)','num'], ['sizeY','Розмір Y, мм (корпус)','num'],
+  ['nozzleType','Рекомендоване сопло','nozType'], ['nozzle','Голова, якщо сопла немає на жодній','noz'],
+  ['tape','Ширина стрічки, мм','tape'], ['feedRate','Крок подачі, мм','pitch'], ['orient','Орієнтація в стрічці, ° проти год.','num'],
+  ['height','Висота компонента, мм (забір)','num'], ['placeHeight','Висота при встановленні, мм (порожньо = як вище)','num'],
+  ['speed','Швидкість переносу, % (0 = 100%)','num'], ['pullSpeed','Швидкість протяжки, % (0 = макс.)','num'],
+  ['delayTake','Затримка забору, cs','num'], ['placeDelay','Delay (EComponent)','num'],
+  ['threshold','nThreshold (0 або 1–256)','num'], ['visualRatio','nVisualRadio, %','num'],
+  ['pixX','nPixSizeX, пікс.','pix'], ['pixY','nPixSizeY, пікс.','pix'], ['heightTake','HeightTake','num'],
+  ['vision','Камера / vision','bool'], ['vacuum','Контроль вакууму','bool'], ['polar','Полярний','bool'], ['comment','Примітка']
+];
+function openTplDialog(tid, after){
+  const t = LIB.items.find(t => t.id === tid); if (!t) return;
+  const field = ([k, label, kind]) => {
+    let inp;
+    if (kind === 'type') inp = `<select name="${k}">${TYPES.map(x => `<option value="${x}"${x === t.type ? ' selected' : ''}>${x || '—'}</option>`).join('')}</select>`;
+    else if (kind === 'nozType') inp = `<select name="${k}">${NOZZLES.map(n => `<option value="${n}"${n === t.nozzleType ? ' selected' : ''}>${n ? n + ' (' + NOZZLE_HINT[n] + ')' : '—'}</option>`).join('')}</select>`;
+    else if (kind === 'noz') inp = `<select name="${k}">${[1,2].map(n => `<option${n === t.nozzle ? ' selected' : ''}>${n}</option>`).join('')}</select>`;
+    else if (kind === 'tape') inp = `<select name="${k}">${[8,12,16,24].map(n => `<option${n === t.tape ? ' selected' : ''}>${n}</option>`).join('')}</select>`;
+    else if (kind === 'pitch') inp = `<select name="${k}">${pitchOptions(t.feedRate)}</select>`;
+    else if (kind === 'bool') inp = `<input type="checkbox" name="${k}"${t[k] ? ' checked' : ''}>`;
+    else if (kind === 'num' || kind === 'pix') inp = `<input type="number" step="any" name="${k}" value="${esc(t[k])}">`;
+    else inp = `<input name="${k}" value="${esc(t[k])}">`;
+    return `<label>${esc(label)}</label>${inp}`;
+  };
+  $('#libForm').innerHTML = `<h3>Шаблон компонента</h3><div class="grid2">${TPL_DLG.map(field).join('')}</div>
+    <p class="small muted" style="margin:8px 0 0">Нижня камера ≈ 20 пікс/мм. Точні nPixSize, nThreshold і nVisualRadio краще взяти з машини (Visual Parameters) — після імпорту .dpv їх видно у фідері, звідти «Зберегти як шаблон».</p>
+    <div class="foot"><button type="button" id="tplPix">Pix ≈ з розміру</button><button type="button" id="tplRatio" title="nVisualRadio = (розмір + 2·зсув + запас) / розмір">nVisualRadio ≈ з розміру</button><span class="sp"></span><button value="cancel" formnovalidate>Скасувати</button><button value="ok" class="primary">Зберегти</button></div>`;
+  $('#tplRatio').onclick = () => {
+    const fd = $('#libForm'), r = visualRatioFor(Math.max(num(fd.elements.sizeX.value) || 0, num(fd.elements.sizeY.value) || 0));
+    if (!r) { toast('Спершу вкажіть розмір X/Y'); return; }
+    fd.elements.visualRatio.value = r.ratio; toast('nVisualRadio ' + r.text);
+  };
+  $('#tplPix').onclick = () => {
+    const fd = $('#libForm'), sx = num(fd.elements.sizeX.value), sy = num(fd.elements.sizeY.value);
+    if (sx) fd.elements.pixX.value = Math.round(sx * 20);
+    if (sy) fd.elements.pixY.value = Math.round(sy * 20);
+  };
+  const dlg = $('#libDlg');
+  dlg.onclose = () => {
+    if (dlg.returnValue === 'ok') {
+      const fd = $('#libForm');
+      for (const [k] of TPL_DLG) { const el = fd.elements[k]; if (!el) continue; t[k] = TPL_FIELDS[k] === 'bool' ? el.checked : coerce(TPL_FIELDS[k], el.value); }
+      t.name = t.name.trim() || t.footprint || 'Без назви';
+      saveLib(); renderLib();
+    }
+    if (after) after();
+  };
+  dlg.returnValue = '';
+  dlg.showModal();
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-tpl-edit],[data-tpl-dup],[data-tpl-del],[data-tpl-push]'); if (!b) return;
+  const id = b.dataset.tplEdit || b.dataset.tplDup || b.dataset.tplDel || b.dataset.tplPush, i = LIB.items.findIndex(t => t.id === id), t = LIB.items[i];
+  if (b.dataset.tplEdit) openTplDialog(id);
+  else if (b.dataset.tplDup) { const c = newTpl({ ...t, id: undefined, name: t.name + ' (копія)' }); c.id = newTpl().id; LIB.items.splice(i + 1, 0, c); saveLib(); renderLib(); openTplDialog(c.id); }
+  else if (b.dataset.tplDel) { if (confirm(`Видалити шаблон «${t.name}»?`)) { LIB.items.splice(i, 1); saveLib(); renderLib(); } }
+  else {
+    const ids = ALL_IDS.filter(fid => { const f = state.feeders[fid]; return isCfg(f) && matchTpl(f.type, f.footprint)?.id === id; });
+    if (!confirm(`Застосувати «${t.name}» до фідерів ${ids.map(i => '#' + i).join(', ')}?\nОновляться тип, футпрінт і параметри; DeltX/DeltY та номінал не змінюються.`)) return;
+    for (const fid of ids) { applyTplToFeeder(t, state.feeders[fid]); refreshRow(fid); }
+    saveFeeders(); refresh(); toast(`Оновлено ${ids.length} фідер(ів)`);
+  }
+});
+document.addEventListener('change', e => {
+  const h = e.target.dataset.head; if (!h) return;
+  LIB.heads[h] = e.target.value; saveLib(); renderLib();
+});
+$('#libDefaults').onclick = () => {
+  const n = mergeDefaults(LIB); saveLib(); renderLib();
+  toast(n ? `Додано ${n} стандартних шаблонів` : 'Усі стандартні шаблони вже є в базі');
+};
+if (libMerged) { saveLib(); setTimeout(() => toast(`До бази додано ${libMerged} нових стандартних шаблонів`), 300); }
+$('#libAdd').onclick = () => { const t = newTpl({ name:'Новий' }); LIB.items.push(t); saveLib(); renderLib(); openTplDialog(t.id); };
+$('#libExport').onclick = () => {
+  const keys = Object.keys(TPL_FIELDS);
+  const lines = [['heads', LIB.heads[1], LIB.heads[2]].join(','), keys.join(','), ...LIB.items.map(t => keys.map(k => csvCell(t[k])).join(','))];
+  download('chmt48vb-library.csv', '﻿' + lines.join('\r\n'));
+};
+$('#libImport').onclick = () => $('#fLib').click();
+$('#fLib').onchange = e => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+  file.text().then(text => {
+    const rows = parseDelimited(text.replace(/^﻿/, ''), ',').filter(r => r.some(c => c.trim()));
+    let heads = null;
+    if (rows[0] && rows[0][0] === 'heads') heads = rows.shift();
+    const head = (rows.shift() || []).map(x => x.trim());
+    if (!head.includes('name') || !head.includes('footprint')) { toast('Це не файл бази компонентів'); return; }
+    if (!confirm(`Замінити базу (${LIB.items.length} шт.) на ${rows.length} шаблонів з «${file.name}»?`)) return;
+    LIB.items = rows.map(r => { const t = newTpl(); head.forEach((k, i) => { if (TPL_FIELDS[k]) t[k] = coerce(TPL_FIELDS[k], r[i]); }); return t; });
+    if (heads) LIB.heads = { 1: heads[1] || '', 2: heads[2] || '' };
+    saveLib(); renderLib(); toast(`Завантажено ${LIB.items.length} шаблонів`);
+  });
+};
 
 let toastT;
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
